@@ -1,0 +1,1503 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AI × Labor — Will This Job Survive?</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,300;9..144,400;9..144,600;9..144,800&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    /* dark theme */
+    --bg: #14130f; --ink: #ece6d6; --muted: #9e978a; --rule: #2a2823;
+    --paper: #1c1a16; --red: #e85a4f; --green: #6ec97a; --gold: #d4a64a;
+    --blue: #6fa6e3;
+    --shadow: rgba(0,0,0,0.4);
+    /* SVG chart constants the JS code reads */
+    --chart-axis: #ece6d6;
+    --chart-grid: #2a2823;
+    --chart-label: #9e978a;
+    --mind: #6fa6e3; --hand: #d4a64a; --heart: #c66bb0;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body {
+    background: var(--bg); color: var(--ink);
+    font-family: 'Fraunces', Georgia, serif; font-size: 16px; line-height: 1.5;
+    -webkit-font-smoothing: antialiased;
+  }
+  body {
+    background-image:
+      radial-gradient(circle at 20% 10%, rgba(184,138,45,0.04) 0%, transparent 50%),
+      radial-gradient(circle at 85% 80%, rgba(200,54,44,0.03) 0%, transparent 50%);
+    min-height: 100vh;
+  }
+  .wrap { max-width: 1000px; margin: 0 auto; padding: 40px 28px 80px; }
+
+  header.masthead {
+    border-bottom: 2px solid var(--ink); padding-bottom: 18px; margin-bottom: 28px;
+    display: flex; justify-content: space-between; align-items: baseline; flex-wrap: wrap; gap: 12px;
+  }
+  .masthead .title { font-weight: 800; font-size: clamp(28px, 4vw, 44px); letter-spacing: -0.02em; line-height: 1; }
+  .masthead .title em { font-style: italic; font-weight: 300; color: var(--muted); }
+  .masthead .meta {
+    font-family: 'JetBrains Mono', monospace; font-size: 11px; text-transform: uppercase;
+    letter-spacing: 0.15em; color: var(--muted); text-align: right;
+  }
+  .lede { font-size: 16px; line-height: 1.6; color: var(--muted); margin-bottom: 32px; max-width: 760px; font-style: italic; }
+  .lede strong { color: var(--ink); font-style: normal; font-weight: 600; }
+
+  .panel {
+    background: var(--paper); border: 1px solid var(--rule); padding: 26px 24px; margin-bottom: 24px;
+    box-shadow: 0 1px 0 var(--shadow), 0 8px 24px -16px var(--shadow);
+  }
+  .panel-label {
+    font-family: 'JetBrains Mono', monospace; font-size: 10px; font-weight: 700; text-transform: uppercase;
+    letter-spacing: 0.2em; color: var(--muted); margin-bottom: 16px; padding-bottom: 10px;
+    border-bottom: 1px solid var(--rule); display: flex; justify-content: space-between; gap: 12px;
+  }
+  .panel-label .num { color: var(--gold); }
+
+  .lookup-row { display: flex; gap: 8px; margin-bottom: 12px; align-items: stretch; }
+  .lookup-input {
+    flex: 1 1 auto; min-width: 0; font-family: 'Fraunces', serif; font-size: 16px; padding: 12px 14px;
+    background: var(--bg); border: 1px solid var(--rule); color: var(--ink); outline: none;
+  }
+  .lookup-input:focus { border-color: var(--gold); }
+  .lookup-input::placeholder { color: var(--muted); font-style: italic; }
+  /* Empty placeholder frame that fills with the Mind/Hand/Heart indicator on estimate */
+  .kind-slot {
+    flex: 0 0 auto; min-width: 96px; display: flex; align-items: center; justify-content: center;
+    border: 1px dashed var(--rule); border-radius: 2px; padding: 0 12px;
+  }
+  .kind-slot .kind-icon { margin-left: 0; }
+  .kind-slot.filled { border-style: solid; border-color: var(--ink); }
+  .lookup-btn {
+    font-family: 'JetBrains Mono', monospace; font-size: 11px; text-transform: uppercase;
+    letter-spacing: 0.1em; padding: 0 22px; background: var(--ink); color: var(--paper);
+    border: 1px solid var(--ink); cursor: pointer; transition: opacity 0.15s; white-space: nowrap;
+  }
+  .lookup-btn:hover { opacity: 0.85; }
+  .lookup-btn:disabled { opacity: 0.4; cursor: wait; }
+  .lookup-status { font-size: 12px; font-style: italic; color: var(--muted); min-height: 16px; line-height: 1.4; }
+  .lookup-status.error { color: var(--red); }
+
+  .control { margin-top: 22px; }
+  .control-head { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 6px; }
+  .control-label { font-weight: 600; font-size: 15px; }
+  .control-value {
+    font-family: 'JetBrains Mono', monospace; font-size: 14px; font-weight: 500; color: var(--ink);
+    background: var(--bg); padding: 2px 8px; border: 1px solid var(--rule);
+  }
+  .control-desc { font-size: 12px; color: var(--muted); font-style: italic; margin-bottom: 8px; }
+  .control-status { font-family: 'JetBrains Mono', monospace; font-size: 11px; color: var(--green); margin-bottom: 14px; }
+  input[type="range"] {
+    -webkit-appearance: none; appearance: none; width: 100%; height: 4px;
+    background: var(--rule); outline: none; cursor: pointer;
+  }
+  input[type="range"]::-webkit-slider-thumb {
+    -webkit-appearance: none; appearance: none; width: 18px; height: 18px; background: var(--ink);
+    border-radius: 50%; cursor: pointer; border: 3px solid var(--paper); box-shadow: 0 0 0 1px var(--ink);
+  }
+  input[type="range"]::-moz-range-thumb {
+    width: 18px; height: 18px; background: var(--ink); border-radius: 50%; cursor: pointer;
+    border: 3px solid var(--paper); box-shadow: 0 0 0 1px var(--ink);
+  }
+  .control-hint {
+    font-family: 'JetBrains Mono', monospace; font-size: 10px; color: var(--muted);
+    margin-top: 6px; display: flex; justify-content: space-between; letter-spacing: 0.05em;
+  }
+
+  /* Tick scale under sliders: small marks at meaningful values with labels below. */
+  .tick-scale {
+    position: relative;
+    height: 22px;
+    margin-top: 6px;
+    margin-bottom: 4px;
+  }
+  .tick-scale .tick {
+    position: absolute;
+    top: 0;
+    transform: translateX(-50%);
+    display: flex; flex-direction: column; align-items: center;
+    pointer-events: none;
+  }
+  .tick-scale .tick.last { transform: translateX(-100%); align-items: flex-end; }
+  .tick-scale .tick:first-child { transform: translateX(0); align-items: flex-start; }
+  .tick-scale .tick i {
+    width: 1px; height: 5px; background: var(--muted); opacity: 0.55;
+    display: block;
+  }
+  .tick-scale .tick b {
+    font-family: 'JetBrains Mono', monospace; font-size: 9.5px; font-weight: 500;
+    color: var(--muted); letter-spacing: 0.04em; margin-top: 3px;
+  }
+
+  .bucket-tag {
+    display: inline-flex; align-items: center; gap: 6px; font-family: 'JetBrains Mono', monospace;
+    font-size: 10px; text-transform: uppercase; letter-spacing: 0.12em; padding: 3px 10px;
+    border: 1px solid var(--rule); color: var(--paper);
+  }
+  .bucket-tag.mind { background: var(--mind); border-color: var(--mind); }
+  .bucket-tag.hand { background: var(--hand); border-color: var(--hand); }
+  .bucket-tag.heart { background: var(--heart); border-color: var(--heart); }
+
+  .headline {
+    background: #0a0908; color: var(--ink); padding: 24px 26px; margin-bottom: 24px;
+    position: relative; overflow: hidden; display: grid; grid-template-columns: 1fr 1fr; gap: 28px;
+    border: 1px solid var(--rule);
+  }
+  @media (max-width: 560px) { .headline { grid-template-columns: 1fr; gap: 18px; } }
+  .headline::before { content: ''; position: absolute; top: 0; left: 0; width: 4px; height: 100%; background: var(--gold); }
+  .headline .cell .label {
+    font-family: 'JetBrains Mono', monospace; font-size: 10px; text-transform: uppercase;
+    letter-spacing: 0.2em; color: var(--gold); margin-bottom: 8px;
+  }
+  .headline .cell .number { font-size: clamp(34px, 5vw, 52px); font-weight: 300; line-height: 1; letter-spacing: -0.03em; margin-bottom: 4px; }
+  .headline .cell .number .sign { font-weight: 800; }
+  .headline .cell .number.up .sign { color: #6ec97a; }
+  .headline .cell .number.down .sign { color: #ff8a7a; }
+  .headline .cell .sub { font-size: 13px; color: var(--muted); font-style: italic; line-height: 1.5; }
+
+  .chart-title { font-family: 'JetBrains Mono', monospace; font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.2em; color: var(--muted); margin-bottom: 4px; }
+  .chart-sub { font-size: 13px; color: var(--muted); font-style: italic; margin-bottom: 16px; }
+  svg.chart { width: 100%; height: auto; display: block; }
+
+  .two-up { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; }
+  @media (max-width: 700px) { .two-up { grid-template-columns: 1fr; } }
+  .two-up .panel { margin-bottom: 0; }
+
+  table.params { width: 100%; border-collapse: collapse; font-size: 14px; }
+  table.params td { padding: 11px 4px; border-bottom: 1px solid var(--rule); vertical-align: top; }
+  table.params tr:last-child td { border-bottom: none; }
+  table.params .pname { font-weight: 600; width: 38%; }
+  table.params .pval { font-family: 'JetBrains Mono', monospace; font-weight: 700; width: 16%; color: var(--ink); white-space: nowrap; }
+  table.params .pdesc { color: var(--muted); font-size: 12px; font-style: italic; }
+  table.params .pname-with-info { display: inline-flex; align-items: center; gap: 5px; cursor: help; }
+  .info-mark {
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 14px; height: 14px; border-radius: 50%; border: 1px solid var(--muted);
+    color: var(--muted); font-size: 9px; font-family: 'JetBrains Mono', monospace;
+    font-weight: 700; cursor: help; font-style: normal;
+  }
+  .row-with-note { position: relative; }
+  .footnote-inline {
+    color: var(--muted); font-size: 11px; font-style: italic; line-height: 1.5;
+    padding: 4px 0 6px 0; display: none;
+  }
+  .footnote-inline.show { display: block; }
+
+  .conf-badge {
+    font-family: 'JetBrains Mono', monospace; font-size: 9px; text-transform: uppercase; letter-spacing: 0.1em;
+    padding: 2px 8px; border: 1px solid var(--rule); color: var(--muted); white-space: nowrap;
+  }
+  .conf-badge.high { color: var(--green); border-color: var(--green); }
+  .conf-badge.low { color: var(--red); border-color: var(--red); }
+
+  .spinner {
+    display: inline-block; width: 11px; height: 11px; border: 2px solid var(--rule);
+    border-top-color: var(--gold); border-radius: 50%; animation: spin 0.7s linear infinite;
+    vertical-align: middle; margin-right: 6px;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .status-msg { transition: opacity 0.28s ease; }
+  .status-msg.fading { opacity: 0; }
+
+  .footnote { margin-top: 24px; padding-top: 18px; border-top: 1px solid var(--rule); font-size: 12px; color: var(--muted); font-style: italic; line-height: 1.6; }
+  #results { display: none; }
+  #results.show { display: block; }
+
+  /* (work-kind icon styled later as line-art) */
+
+  /* Dual-handle slider */
+  .dual-readout { display: flex; gap: 10px; margin-bottom: 12px; }
+  .dual-pill {
+    font-family: 'JetBrains Mono', monospace; font-size: 12px; padding: 4px 12px;
+    border: 1px solid var(--rule); background: var(--bg); display: inline-flex; gap: 6px; align-items: baseline;
+  }
+  .dual-pill b { font-size: 9px; text-transform: uppercase; letter-spacing: 0.12em; }
+  .dual-pill.today  { border-left: 3px solid var(--ink); }
+  .dual-pill.today  b { color: var(--ink); }
+  .dual-pill.future { border-left: 3px solid var(--blue); }
+  .dual-pill.future b { color: var(--blue); }
+  .dual-slider { position: relative; height: 28px; margin: 4px 0 2px; }
+  .dual-track, .dual-fill { position: absolute; top: 13px; height: 4px; border-radius: 2px; }
+  .dual-track { left: 0; right: 0; background: var(--rule); }
+  .dual-fill  { background: var(--blue); opacity: 0.35; }
+  .dual-slider input[type="range"] {
+    position: absolute; top: 0; left: 0; width: 100%; margin: 0; height: 28px;
+    background: none; pointer-events: none; -webkit-appearance: none; appearance: none;
+  }
+  .dual-slider input[type="range"]::-webkit-slider-thumb {
+    pointer-events: auto; -webkit-appearance: none; appearance: none;
+    width: 18px; height: 18px; border-radius: 50%; cursor: grab;
+    border: 3px solid var(--paper); box-shadow: 0 0 0 1px var(--ink);
+  }
+  .dual-slider input[type="range"]::-moz-range-thumb {
+    pointer-events: auto; width: 18px; height: 18px; border-radius: 50%; cursor: grab;
+    border: 3px solid var(--paper); box-shadow: 0 0 0 1px var(--ink);
+  }
+  #todaySlider::-webkit-slider-thumb  { background: var(--ink); }
+  #todaySlider::-moz-range-thumb       { background: var(--ink); }
+  #futureSlider::-webkit-slider-thumb { background: var(--blue); }
+  #futureSlider::-moz-range-thumb      { background: var(--blue); }
+
+  /* Unlock button + editable param sliders */
+  .unlock-btn {
+    font-family: 'JetBrains Mono', monospace; font-size: 10px; text-transform: uppercase;
+    letter-spacing: 0.1em; padding: 4px 12px; background: var(--bg); color: var(--ink);
+    border: 1px solid var(--ink); cursor: pointer; transition: all 0.15s;
+  }
+  .unlock-btn:hover { background: var(--ink); color: var(--paper); }
+  .unlock-btn.active { background: var(--gold); border-color: var(--gold); color: #fff; }
+  .param-slider { width: 100%; height: 3px; margin-top: 7px; display: none; }
+  .params.unlocked .param-slider { display: block; }
+  .params.unlocked .pval { color: var(--gold); }
+
+  /* Chart hover tooltip */
+  .chart-hover-line { stroke: var(--ink); stroke-width: 0.8; stroke-dasharray: 3,3; opacity: 0.6; }
+  .chart-hover-dot  { stroke: var(--paper); stroke-width: 2; }
+  .chart-tip {
+    font-family: 'JetBrains Mono', monospace; font-size: 11px; fill: var(--ink);
+  }
+  .chart-tip-bg { fill: var(--paper); stroke: var(--ink); stroke-width: 1; }
+  svg.chart { touch-action: none; }
+
+  /* Side-by-side control + employment chart on wide screens */
+  .emp-row { display: flex; flex-direction: column; gap: 16px; margin-bottom: 16px; }
+  .emp-row .panel { margin-bottom: 0; }
+  .control-panel { display: flex; flex-direction: column; justify-content: center; }
+
+  /* Center the future pill so there's space right of Today */
+  .dual-readout { display: flex; gap: 10px; margin-bottom: 12px; }
+  #futurePill { margin-left: auto; margin-right: auto; }
+
+  /* Single slider (hand arrival) */
+  .single-slider { -webkit-appearance: none; appearance: none; width: 100%; height: 4px;
+    background: var(--rule); border-radius: 2px; outline: none; margin: 8px 0; }
+  .single-slider::-webkit-slider-thumb { -webkit-appearance: none; appearance: none;
+    width: 18px; height: 18px; border-radius: 50%; background: var(--hand);
+    border: 3px solid var(--paper); box-shadow: 0 0 0 1px var(--ink); cursor: grab; }
+  .single-slider::-moz-range-thumb { width: 18px; height: 18px; border-radius: 50%;
+    background: var(--hand); border: 3px solid var(--paper); box-shadow: 0 0 0 1px var(--ink); cursor: grab; }
+
+  /* Line-art kind icon: no color fill, thin stroke, currentColor */
+  .kind-icon {
+    display: inline-flex; align-items: center; gap: 5px; font-family: 'JetBrains Mono', monospace;
+    font-size: 10px; text-transform: uppercase; letter-spacing: 0.1em; padding: 2px 8px;
+    border: 1px solid var(--ink); border-radius: 2px; color: var(--ink);
+    background: none; vertical-align: middle; margin-left: 6px;
+  }
+  .kind-icon svg { width: 13px; height: 13px; display: block; }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header class="masthead">
+  <div>
+    <div class="title">AI <em>×</em> Labor</div>
+    <div style="font-family: 'JetBrains Mono', monospace; font-size: 11px; color: var(--muted); letter-spacing: 0.1em; margin-top: 4px;">WILL THIS JOB SURVIVE?</div>
+  </div>
+  <div class="meta">30-year transition path</div>
+</header>
+
+<div class="panel">
+  <div class="lookup-row">
+    <input type="text" class="lookup-input" id="lookup-input" placeholder="Enter a profession, e.g. radiologist, plumber, cellist…" maxlength="80" autocomplete="off">
+    <button class="lookup-btn" id="lookup-btn">Estimate</button>
+    <div class="kind-slot" id="lookupKind"></div>
+  </div>
+  <div class="lookup-status" id="lookup-status"></div>
+</div>
+
+<div id="results">
+
+  <div class="two-up" id="topControls">
+    <div class="panel control-panel" id="midpointControl">
+      <div class="control-head">
+        <span class="control-label" id="control-label">Estimated share of tasks AI can do</span>
+      </div>
+      <div class="control-status" id="control-status"></div>
+
+      <!-- MIND / HEART: dual handle -->
+      <div id="dualWrap">
+        <div class="dual-readout">
+          <span class="dual-pill today"><b>Today</b> <span id="todayValue">15%</span></span>
+          <span class="dual-pill future" id="futurePill"><b>In 5 yr</b> <span id="futureValue">50%</span></span>
+        </div>
+        <div class="dual-slider" id="dualSlider">
+          <div class="dual-track"></div>
+          <div class="dual-fill" id="dualFill"></div>
+          <input type="range" id="todaySlider"  min="1" max="98" value="15" step="1">
+          <input type="range" id="futureSlider" min="2" max="99" value="50" step="1">
+        </div>
+        <div class="tick-scale" id="dualTickScale" aria-hidden="true">
+          <span class="tick" style="left:0%"><i></i><b>0%</b></span>
+          <span class="tick" style="left:25%"><i></i><b>25%</b></span>
+          <span class="tick" style="left:50%"><i></i><b>50%</b></span>
+          <span class="tick" style="left:75%"><i></i><b>75%</b></span>
+          <span class="tick last" style="left:100%"><i></i><b id="dualMaxHint">100%</b></span>
+        </div>
+      </div>
+
+      <!-- HAND: single arrival slider -->
+      <div id="handWrap" style="display:none;">
+        <div class="dual-readout">
+          <span class="dual-pill future"><b>Dexterous robots arrive in</b> <span id="handArrivalValue">12 yr</span></span>
+        </div>
+        <input type="range" id="handArrivalSlider" min="2" max="30" value="12" step="1" class="single-slider">
+        <div class="tick-scale" aria-hidden="true">
+          <span class="tick" style="left:0%"><i></i><b>2 yr</b></span>
+          <span class="tick" style="left:10.7%"><i></i><b>5</b></span>
+          <span class="tick" style="left:28.6%"><i></i><b>10</b></span>
+          <span class="tick" style="left:46.4%"><i></i><b>15</b></span>
+          <span class="tick" style="left:64.3%"><i></i><b>20</b></span>
+          <span class="tick" style="left:82.1%"><i></i><b>25</b></span>
+          <span class="tick last" style="left:100%"><i></i><b>30</b></span>
+        </div>
+        <div class="control-desc">Physical capability progresses as embodied-AI progresses, gated by when affordable dexterous robots actually deploy.</div>
+      </div>
+
+      <div class="control-desc" id="control-desc-note"></div>
+    </div>
+
+    <div class="panel control-panel" id="elasticityControl" style="display:none;">
+      <div class="control-head">
+        <span class="control-label">Estimated Demand elasticity</span>
+      </div>
+      <div class="dual-readout">
+        <span class="dual-pill future"><b>η</b> <span id="elasticityValue">1.0×</span></span>
+      </div>
+      <input type="range" id="elasticitySlider" min="0" max="4" step="0.1" value="1" class="single-slider">
+      <div class="tick-scale" aria-hidden="true">
+        <span class="tick" style="left:0%"><i></i><b>0</b></span>
+        <span class="tick" style="left:25%"><i></i><b>1×</b></span>
+        <span class="tick" style="left:50%"><i></i><b>2×</b></span>
+        <span class="tick" style="left:75%"><i></i><b>3×</b></span>
+        <span class="tick last" style="left:100%"><i></i><b>4×</b></span>
+      </div>
+      <div class="control-desc" id="elasticityNote">% increase in demand for each 1% price drop. Higher means the market expands more as AI cuts prices.</div>
+    </div>
+  </div>
+
+  <div class="two-up">
+    <div class="panel">
+      <div class="chart-title" id="employmentTitle">Employment</div>
+      <svg class="chart" id="employmentChart" viewBox="0 0 420 260" preserveAspectRatio="xMidYMid meet"></svg>
+      <div class="chart-sub" id="employmentNarrative" style="margin-top:6px;"></div>
+    </div>
+    <div class="panel">
+      <div class="chart-title" id="wageTitle">Avg. Yearly Income</div>
+      <svg class="chart" id="wageChart" viewBox="0 0 420 260" preserveAspectRatio="xMidYMid meet"></svg>
+      <div class="chart-sub" id="incomeNarrative" style="margin-top:6px;"></div>
+    </div>
+  </div>
+
+  <div class="two-up">
+    <div class="panel">
+      <div class="chart-title">Share of tasks AI can do</div>
+      <svg class="chart" id="capabilityChart" viewBox="0 0 420 260" preserveAspectRatio="xMidYMid meet"></svg>
+    </div>
+    <div class="panel">
+      <div class="chart-title" id="marketTitle">Demand</div>
+      <svg class="chart" id="marketChart" viewBox="0 0 420 260" preserveAspectRatio="xMidYMid meet"></svg>
+    </div>
+  </div>
+
+  <div class="panel">
+    <div class="panel-label">
+      <span style="display:flex; gap:10px; align-items:center;">
+        <button class="unlock-btn" id="unlockBtn">🔒 Unlock</button>
+        Estimated Parameters · <span id="tableProfession"></span>
+      </span>
+      <span style="display:flex; gap:10px; align-items:center;">
+        <span id="tableKind"></span>
+        <span class="conf-badge" id="tableConfidence">medium</span>
+      </span>
+    </div>
+    <table class="params"><tbody id="parameterRows"></tbody></table>
+    <p class="footnote" id="tableRationale"></p>
+  </div>
+
+</div>
+
+<p class="footnote">
+  A toy model, not a forecast. For mind and heart jobs, AI capability follows a Gompertz curve fixed by two points: the share of tasks automatable today and your guess for five years out. For hand jobs, capability follows a fixed embodied-AI curve gated by when dexterous robots arrive (the slider you control). Heart-job cores are never automatable — only their support work is, and the human core grows with the market. Employment is shown indexed to 100 = today's workforce. As capability rises, AI substitutes for human labor while a falling price expands the market. Layoffs are fast (≈0.75 yr); hiring is slower. The dashed gold line is the wage index per remaining worker: it rises when survivors become scarcer and more productive (AI leverage), and falls once AI can do the core task cheaply, competing pay down toward the cost of the AI itself.
+</p>
+
+</div>
+
+<script>
+  const $ = id => document.getElementById(id);
+  const setText = (id, txt) => { const el = document.getElementById(id); if (el) el.textContent = txt; };
+
+  // Line-art mind/hand/heart icons (inherit currentColor, no fill).
+  function kindIconSvg(kind) {
+    return ({
+      mind: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M15.5 20v-2.2a5.5 5.5 0 1 0-7-5.3"/><path d="M8.5 20v-3l-2-1 1.2-2.4a5.5 5.5 0 0 1 .3-2.1"/><circle cx="12.5" cy="11" r="1.1" fill="currentColor" stroke="none"/></svg>',
+      hand: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M7 11V6a1.5 1.5 0 0 1 3 0v4"/><path d="M10 10V5a1.5 1.5 0 0 1 3 0v5"/><path d="M13 10.5V6a1.5 1.5 0 0 1 3 0v6"/><path d="M16 9.5a1.5 1.5 0 0 1 3 0V14a6 6 0 0 1-6 6h-1.5a6 6 0 0 1-5-2.7L5 14.5a1.5 1.5 0 0 1 2.5-1.6L9 14"/></svg>',
+      heart: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20s-7-4.3-7-9.3A3.7 3.7 0 0 1 12 8a3.7 3.7 0 0 1 7 2.7c0 5-7 9.3-7 9.3Z"/></svg>',
+    })[kind] || '';
+  }
+
+  // ===== Model constants =====
+  const timeHorizonYears = 30;
+  const simulationSteps = 360;
+  const timeStep = timeHorizonYears / simulationSteps;
+  const layoffAdjustmentYears = 0.75;
+  const anchorYear = 5; // the user's "future" handle sets capability at this many years out
+
+  // ----- Two-point Gompertz -----------------------------------------------
+  // f(t) = exp(-b * exp(-c * t)),  f bounded in (0,1), asymptote 1.
+  // Two known points  f(0)=p0  and  f(anchorYear)=p5  pin down b and c:
+  //   b = -ln(p0)
+  //   c = -(1/anchorYear) * ln( ln(p5) / ln(p0) )
+  // Requires 0 < p0 < p5 < 1.
+  function gompertzParams(todayShare, fiveYearShare) {
+    const epsilon = 1e-4;
+    todayShare = Math.min(1 - epsilon, Math.max(epsilon, todayShare));
+    fiveYearShare = Math.min(1 - epsilon, Math.max(todayShare + epsilon, fiveYearShare));
+    const shape = -Math.log(todayShare);
+    const rate = -(1 / anchorYear) * Math.log(Math.log(fiveYearShare) / Math.log(todayShare));
+    return { shape, rate };
+  }
+  // Capability at time t (share of tasks AI can do) — the "brain" curve.
+  function capabilityAt(year, gompertz) {
+    return Math.exp(-gompertz.shape * Math.exp(-gompertz.rate * year));
+  }
+  // Time at which capability first reaches a given level (inverse of the above).
+  function timeForLevel(level, gompertz) {
+    return -(1 / gompertz.rate) * Math.log(-Math.log(level) / gompertz.shape);
+  }
+
+  // Robot deployment gate D(t) in [0,1]: a logistic centered on the arrival year.
+  // Hand-work physical capability can't be realized until affordable, dexterous
+  // robots exist and spread. For mind-work the gate is identically 1 (no body needed).
+  function deploymentGate(year, isGated, arrivalYear, rampYears) {
+    if (!isGated) return 1;
+    const steepness = 4 / Math.max(0.5, rampYears); // logistic steepness from ramp width
+    return 1 / (1 + Math.exp(-steepness * (year - arrivalYear)));
+  }
+  // Effective realized CORE capability = brain curve × deployment gate, then capped by
+  // the work-kind's core ceiling. For heart-work the core (the human people pay to see)
+  // is fundamentally un-automatable, so its ceiling is near zero regardless of how the
+  // capability sliders are set — the slider then only describes the peripheral/recordable
+  // share, not the live human core.
+  function effectiveCapabilityAt(year, gompertz, profile) {
+    const realizedCapability = capabilityAt(year, gompertz) * deploymentGate(year, profile.gated, profile.robotArrivalYear, profile.robotRampYears);
+    const ceiling = profile.coreCapabilityCeiling != null ? profile.coreCapabilityCeiling : 1;
+    return Math.min(realizedCapability, ceiling);
+  }
+
+  // Productivity ramps from its TODAY value up to the ceiling along the EFFECTIVE
+  // capability (rebased so the ramp is 0 at year 0). Complementarity ramps from 1.0.
+  function rampFraction(effectiveCapability, effectiveCapabilityToday) {
+    return effectiveCapabilityToday >= 1 ? 0 : (effectiveCapability - effectiveCapabilityToday) / (1 - effectiveCapabilityToday);
+  }
+  function productivityAt(rampProgress, productivityToday, productivityCeiling) {
+    return productivityToday + (productivityCeiling - productivityToday) * rampProgress;
+  }
+  function complementarityAt(rampProgress, complementarityCeiling) {
+    return 1 + (complementarityCeiling - 1) * rampProgress;
+  }
+  // AI/robot cost per hour as a fraction of a human hour. For gated (hand) work the
+  // cost only bites as robots actually deploy, so we blend toward an "effectively
+  // unavailable" cost before arrival by dividing the usable capacity by the gate.
+  function aiCostAt(year, aiCostToday, aiCostDecayRate) {
+    return aiCostToday * Math.pow(1 - aiCostDecayRate, year);
+  }
+
+  // Support work (marketing/admin/editing/logistics) automates on a FAST software
+  // curve for every job, independent of robots or work-kind. Gompertz-shaped, hitting
+  // ~50% around year 3 and saturating near 95% by ~year 12.
+  function supportAutomationAt(year) {
+    const shape = Math.log(1/0.15);   // ~15% automated today
+    const rate = 0.30;                // rate
+    return Math.exp(-shape * Math.exp(-rate * year));
+  }
+  // Reach gain: as support is offloaded, one human can serve more core output.
+  // Scales from 1.0 toward (1 + reachCeiling) along the support-automation curve.
+  function reachGainAt(year, reachCeiling) {
+    const supportAutoNow = supportAutomationAt(year), supportAutoToday = supportAutomationAt(0);
+    const progress = (supportAutoNow - supportAutoToday) / (1 - supportAutoToday);
+    return 1 + reachCeiling * progress;
+  }
+
+  // The equilibrium distinguishes core work from support work (marketing, admin,
+  // scheduling, editing, logistics). AI attacks SUPPORT cheaply and early for every
+  // job — it's software, no robot needed. CORE work is automated only along the
+  // (gated) capability curve, and for heart-work core capability stays ~0.
+  //
+  //   humansPerUnit — human labor needed per unit of output; drives employment.
+  //   costPerUnit   — total cost per unit; drives the price drop and market expansion.
+  function staticEquilibrium(inputs) {
+    const coreShare = 1 - inputs.supportFraction;
+
+    // --- Human labor per unit of output ---
+    // Core: human-preferred skill, automated only along the (gated) capability curve.
+    // Complementarity gives a modest speedup on retained human tasks. reachGain does
+    // NOT divide headcount here — for human-presence work the human is the product.
+    const humanCorePerUnit = coreShare * (1 - inputs.coreCapability) / inputs.complementarity;
+    const aiCorePerUnit    = coreShare * inputs.coreCapability * (inputs.aiCostFraction / inputs.productivity);
+    // Support: cheap software AI for everyone, regardless of work-kind.
+    const humanSupportPerUnit = inputs.supportFraction * (1 - inputs.supportAuto) / inputs.complementarity;
+    const aiSupportPerUnit    = inputs.supportFraction * inputs.supportAuto * inputs.supportAICost;
+    const humansPerUnit = humanCorePerUnit + humanSupportPerUnit;
+
+    // --- Cost / price ---
+    const costPerUnit = (humanCorePerUnit + aiCorePerUnit) / inputs.reachGain
+                      + humanSupportPerUnit + aiSupportPerUnit;
+    const priceChange = inputs.laborCostShare * (costPerUnit - 1);
+    const marketSize  = Math.pow(Math.max(0.01, 1 + priceChange), -inputs.demandElasticity);
+
+    // --- Employment of THIS profession ---
+    // Only the CORE practitioners count as jobs in the profession (a surgeon is a
+    // surgeon; their automated billing/scheduling were never "surgeon" jobs). So
+    // automating support work lowers cost and expands the market, but does NOT directly
+    // destroy headcount. Core employment scales with the market.
+    const coreEmploymentPerUnit = humanCorePerUnit;
+
+    // --- Wage per core worker (index, 1.0 = today) ---
+    // Two opposing forces:
+    //  (1) Leverage/scarcity UP: as AI augments the human (complementarity) and offloads
+    //      support so each human serves more output (reachGain), the value each remaining
+    //      core human is responsible for rises.
+    //  (2) Substitution DOWN: once AI can do the core task cheaply, the human's wage is
+    //      competed toward the AI's cost of doing the same work. We model the human's
+    //      pricing power on the still-human share as (1 - coreCapability): when capability
+    //      is high, almost none of the core is human-exclusive, so wage premium collapses
+    //      toward the AI cost floor.
+    const leverage = inputs.complementarity * inputs.reachGain;   // >= 1, rises over time
+    const aiFloor  = inputs.aiCostFraction / inputs.productivity; // cost of an AI doing the task
+    // Wage = leverage-scaled value on the human-exclusive share, plus an AI-cost floor on
+    // the rest. Normalised later by the year-0 value to produce an index.
+    const wageValue = leverage * (1 - inputs.coreCapability) + leverage * inputs.coreCapability * aiFloor;
+
+    return { humansPerUnit, coreEmploymentPerUnit, costPerUnit, priceChange, marketSize, wageValue };
+  }
+
+  function simulate(profile) {
+    const gompertz = gompertzParams(profile.currentAutomatable, profile.fiveYearAutomatable);
+    const effectiveCapabilityToday = effectiveCapabilityAt(0, gompertz, profile);
+    // Year-0 core labor per unit, used to index employment to 100 = today.
+    const equilibriumToday = staticEquilibrium({
+      coreCapability: effectiveCapabilityToday,
+      productivity: productivityAt(0, profile.productivityToday, profile.productivityCeiling),
+      aiCostFraction: aiCostAt(0, profile.aiCostToday, profile.aiCostDecayRate),
+      demandElasticity: profile.demandElasticity,
+      laborCostShare: profile.laborCostShare,
+      complementarity: complementarityAt(0, profile.complementarity),
+      supportFraction: profile.supportFraction,
+      supportAuto: supportAutomationAt(0),
+      supportAICost: profile.supportAICost,
+      reachGain: reachGainAt(0, profile.reachCeiling),
+    });
+    const coreLaborPerUnitToday = equilibriumToday.coreEmploymentPerUnit || 1e-6;
+    const wageValueToday = equilibriumToday.wageValue || 1e-6;
+    let marketSize = 1, employment = 1;
+    const series = [];
+    for (let i = 0; i <= simulationSteps; i++) {
+      const year = i * timeStep;
+      const brainCap = capabilityAt(year, gompertz);
+      const capability = effectiveCapabilityAt(year, gompertz, profile); // gated, realized
+      const rampProgress = rampFraction(capability, effectiveCapabilityToday);
+      const productivity = productivityAt(rampProgress, profile.productivityToday, profile.productivityCeiling);
+      const complementarityNow = complementarityAt(rampProgress, profile.complementarity);
+      const aiCostFraction = aiCostAt(year, profile.aiCostToday, profile.aiCostDecayRate);
+      const equilibrium = staticEquilibrium({
+        coreCapability: capability,
+        productivity,
+        aiCostFraction,
+        demandElasticity: profile.demandElasticity,
+        laborCostShare: profile.laborCostShare,
+        complementarity: complementarityNow,
+        supportFraction: profile.supportFraction,
+        supportAuto: supportAutomationAt(year),
+        supportAICost: profile.supportAICost,
+        reachGain: reachGainAt(year, profile.reachCeiling),
+      });
+      const marketTarget = equilibrium.marketSize;
+      // Employment = (lagged market) × (core practitioners per unit), indexed to today.
+      // Support automation does NOT cut headcount here — only the core human practitioners
+      // are counted as jobs in this profession.
+      const employmentTarget = marketSize * (equilibrium.coreEmploymentPerUnit / coreLaborPerUnitToday);
+
+      // --- Scarcity premium on income ---
+      // When desired employment exceeds actual (a shortage opening up because demand is
+      // expanding faster than the workforce can fill it), the workers who ARE in the job
+      // capture a transient wage premium. The gap closes on its own as employment catches
+      // up (via the lag below), so the premium is self-extinguishing. Negative gap = glut,
+      // which gently pushes wages down. Clamped so an early transient can't explode it.
+      const SCARCITY_PREMIUM_SENSITIVITY = 0.5; // wage lift per unit of fractional labor shortage
+      const employmentGapRaw = (employmentTarget - employment) / Math.max(employment, 1e-6);
+      const employmentGap = Math.max(-0.5, Math.min(0.5, employmentGapRaw));
+      const wageWithPremium = (equilibrium.wageValue / wageValueToday) * (1 + SCARCITY_PREMIUM_SENSITIVITY * employmentGap);
+
+      series.push({ year, capability, brainCap, marketSize, employment, wage: wageWithPremium });
+      const laborAdjustmentYears = (employmentTarget < employment) ? layoffAdjustmentYears : profile.hiringAdjustmentYears;
+      marketSize += (marketTarget - marketSize) / profile.demandAbsorptionYears * timeStep;
+      employment += (employmentTarget - employment) / laborAdjustmentYears * timeStep;
+    }
+    return series;
+  }
+
+  let currentProfile = null;
+  let unlocked = false;
+  // Editable overrides for the unlockable parameters (null = use AI estimate).
+  const overrides = {};
+  const EDITABLE = [
+    { key: 'productivityToday',    min: 1,    max: 30,  step: 0.5,  fmt: v => v.toFixed(1) + '×' },
+    { key: 'productivityCeiling',  min: 2,    max: 100, step: 1,    fmt: v => Math.round(v) + '×' },
+    { key: 'demandElasticity',     min: 0,    max: 4,   step: 0.1,  fmt: v => v.toFixed(1) + '×' },
+    { key: 'laborCostShare',       min: 0.2,  max: 0.95,step: 0.01, fmt: v => Math.round(v*100) + '%' },
+    { key: 'aiCostToday',          min: 0.02, max: 1,   step: 0.01, fmt: v => Math.round(v*100) + '%' },
+    { key: 'aiCostDecayRate',      min: 0,    max: 0.45,step: 0.01, fmt: v => Math.round(v*100) + '%/yr' },
+    { key: 'complementarity',      min: 1,    max: 4,   step: 0.1,  fmt: v => v.toFixed(1) + '×' },
+    { key: 'hiringAdjustmentYears',min: 0.5,  max: 5,   step: 0.1,  fmt: v => v.toFixed(1) + ' yr' },
+    { key: 'demandAbsorptionYears',min: 1,    max: 8,   step: 0.1,  fmt: v => v.toFixed(1) + ' yr' },
+    { key: 'supportFraction',      min: 0,    max: 0.8, step: 0.01, fmt: v => Math.round(v*100) + '%' },
+    { key: 'reachCeiling',         min: 0,    max: 20,  step: 0.5,  fmt: v => '+' + v.toFixed(1) + '×' },
+    { key: 'robotArrivalYear',     min: 0,    max: 30,  step: 1,    fmt: v => Math.round(v) + ' yr', gatedOnly: true },
+    { key: 'robotRampYears',       min: 1,    max: 15,  step: 0.5,  fmt: v => v.toFixed(1) + ' yr', gatedOnly: true },
+  ];
+  const readToday  = () => +$('todaySlider').value / 100;
+  const readFuture = () => +$('futureSlider').value / 100;
+  const isHand = () => currentProfile && currentProfile.workKind === 'hand';
+  // Effective parameter value: override if set, else AI estimate.
+  const P = key => (overrides[key] != null ? overrides[key] : currentProfile[key]);
+
+  function profileFromCurrent() {
+    // HAND jobs: capability curve is FIXED (canned embodied-AI Gompertz); the user only
+    // controls robotArrivalYear via the slider. MIND/HEART: the two handles set the curve.
+    const hand = isHand();
+    return {
+      currentAutomatable: hand ? currentProfile.currentAutomatable : readToday(),
+      fiveYearAutomatable: hand ? currentProfile.fiveYearFixed : readFuture(),
+      demandElasticity: P('demandElasticity'),
+      laborCostShare: P('laborCostShare'),
+      complementarity: P('complementarity'),
+      productivityToday: P('productivityToday'),
+      productivityCeiling: P('productivityCeiling'),
+      aiCostToday: P('aiCostToday'),
+      aiCostDecayRate: P('aiCostDecayRate'),
+      hiringAdjustmentYears: P('hiringAdjustmentYears'),
+      demandAbsorptionYears: P('demandAbsorptionYears'),
+      supportFraction: P('supportFraction'),
+      supportAICost: P('supportAICost'),
+      reachCeiling: P('reachCeiling'),
+      gated: hand,
+      coreCapabilityCeiling: currentProfile.coreCapabilityCeiling,
+      robotArrivalYear: hand ? (+$('handArrivalSlider')?.value || P('robotArrivalYear')) : P('robotArrivalYear'),
+      robotRampYears: P('robotRampYears'),
+    };
+  }
+
+  // "Nice" axis ticks: ~targetCount steps rounded to 1/2/5 ×10ⁿ, well spaced & readable.
+  function niceTicks(min, max, targetCount) {
+    if (!(max > min)) max = min + 1;
+    const rawStep = (max - min) / Math.max(1, targetCount);
+    const mag = Math.pow(10, Math.floor(Math.log10(rawStep)));
+    const norm = rawStep / mag;
+    const step = (norm <= 1 ? 1 : norm <= 2 ? 2 : norm <= 5 ? 5 : 10) * mag;
+    const lo = Math.floor(min / step) * step;
+    const hi = Math.ceil(max / step) * step;
+    const ticks = [];
+    for (let v = lo; v <= hi + step * 1e-6; v += step) ticks.push(+v.toFixed(10));
+    return { ticks, lo, hi };
+  }
+  function fmtCount(n) {
+    if (n >= 1e6) return (n / 1e6).toFixed(n >= 1e7 ? 0 : 1).replace(/\.0$/, '') + 'M';
+    if (n >= 1e3) return Math.round(n / 1e3) + 'K';
+    return String(Math.round(n));
+  }
+  function fmtDollar(n) {
+    if (n >= 1e6) return '$' + (n / 1e6).toFixed(1) + 'M';
+    if (n >= 1e3) return '$' + Math.round(n / 1e3) + 'K';
+    return '$' + Math.round(n);
+  }
+
+  // Dedicated dual-axis chart: WAGE on the LEFT axis, EMPLOYMENT on the RIGHT axis.
+  // If real BLS bases are supplied, axes read in people / dollars; else as index (100=today).
+  function drawEmploymentChart(svgId, series, opts) {
+    const svg = $(svgId);
+    const vb = svg.viewBox.baseVal;
+    const W = vb.width, H = vb.height;
+    const M = { top: 26, right: 64, bottom: 34, left: 64 };
+    const cw = W - M.left - M.right, ch = H - M.top - M.bottom;
+
+    const empScale  = opts.empBase || 100;       // employment series is an index around 1.0
+    const wageScale = opts.wageBaseAbs || 100;
+    const empAbs  = series.map(p => p.employment * empScale);
+    const wageAbs = series.map(p => p.wage * wageScale);
+
+    // Independent "nice" ranges for each axis, both anchored to include their baseline.
+    const empMaxRaw  = Math.max(empScale,  ...empAbs);
+    const empMinRaw  = Math.min(empScale,  ...empAbs, 0);
+    const wageMaxRaw = Math.max(wageScale, ...wageAbs);
+    const wageMinRaw = Math.min(wageScale, ...wageAbs, 0);
+    const empT  = niceTicks(empMinRaw,  empMaxRaw,  5);
+    const wageT = niceTicks(wageMinRaw, wageMaxRaw, 5);
+
+    const xScale = yr => M.left + (yr / timeHorizonYears) * cw;
+    const yEmp  = v => M.top + ch - ((v - empT.lo)  / (empT.hi  - empT.lo))  * ch;
+    const yWage = v => M.top + ch - ((v - wageT.lo) / (wageT.hi - wageT.lo)) * ch;
+
+    const fmtE = opts.empBase     ? fmtCount  : (v => (v).toFixed(0));
+    const fmtW = opts.wageBaseAbs ? fmtDollar : (v => (v).toFixed(0));
+
+    let h = '';
+    // Horizontal gridlines from the LEFT (wage) axis only, to avoid a double grid.
+    for (const v of wageT.ticks) {
+      const y = yWage(v);
+      h += `<line x1="${M.left}" x2="${W-M.right}" y1="${y}" y2="${y}" stroke="var(--chart-grid)" stroke-width="0.6"/>`;
+    }
+    // LEFT axis (wage, blue) labels
+    for (const v of wageT.ticks) {
+      const y = yWage(v);
+      h += `<text x="${M.left-8}" y="${y+3.5}" text-anchor="end" font-family="JetBrains Mono, monospace" font-size="9.5" fill="var(--blue)">${fmtW(v)}</text>`;
+    }
+    // RIGHT axis (employment, red) labels
+    for (const v of empT.ticks) {
+      const y = yEmp(v);
+      h += `<line x1="${W-M.right}" x2="${W-M.right+4}" y1="${y}" y2="${y}" stroke="var(--chart-axis)" stroke-width="0.8"/>`;
+      h += `<text x="${W-M.right+8}" y="${y+3.5}" text-anchor="start" font-family="JetBrains Mono, monospace" font-size="9.5" fill="var(--red)">${fmtE(v)}</text>`;
+    }
+    // X axis ticks
+    for (let yr = 0; yr <= timeHorizonYears; yr += 5) {
+      const x = xScale(yr);
+      h += `<line x1="${x}" x2="${x}" y1="${M.top+ch}" y2="${M.top+ch+4}" stroke="var(--chart-axis)" stroke-width="1"/>`;
+      h += `<text x="${x}" y="${M.top+ch+18}" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="10" fill="var(--chart-label)">${yr}y</text>`;
+    }
+    // Axis titles
+    h += `<text x="${M.left-8}" y="${M.top-10}" text-anchor="end" font-family="JetBrains Mono, monospace" font-size="8.5" fill="var(--blue)">${opts.wageBaseAbs?'WAGE/WORKER':'WAGE (idx)'}</text>`;
+    h += `<text x="${W-M.right+8}" y="${M.top-10}" text-anchor="start" font-family="JetBrains Mono, monospace" font-size="8.5" fill="var(--red)">${opts.empBase?'EMPLOYMENT':'EMPLOY (idx)'}</text>`;
+
+    // Baseline lines: today's wage (blue dashed) on the left axis, today's employment (red dashed) on the right axis.
+    // Drawn before the data lines so the data sits on top.
+    const yWageBase = yWage(wageScale);
+    const yEmpBase  = yEmp(empScale);
+    h += `<line x1="${M.left}" x2="${W-M.right}" y1="${yWageBase}" y2="${yWageBase}" stroke="var(--blue)" stroke-width="1" stroke-dasharray="4,3" opacity="0.55"/>`;
+    h += `<line x1="${M.left}" x2="${W-M.right}" y1="${yEmpBase}"  y2="${yEmpBase}"  stroke="var(--red)"  stroke-width="1" stroke-dasharray="4,3" opacity="0.55"/>`;
+    // Tiny "today" tags at the right edge of each baseline (only if not overlapping a tick label)
+    h += `<text x="${M.left+4}" y="${yWageBase-3}" font-family="JetBrains Mono, monospace" font-size="8.5" fill="var(--blue)" opacity="0.85">today</text>`;
+    h += `<text x="${W-M.right-4}" y="${yEmpBase-3}" text-anchor="end" font-family="JetBrains Mono, monospace" font-size="8.5" fill="var(--red)" opacity="0.85">today</text>`;
+
+    // Wage line (left axis, blue solid)
+    const dW = series.map((p,i)=>(i===0?'M':'L')+xScale(p.year).toFixed(1)+','+yWage(wageAbs[i]).toFixed(1)).join(' ');
+    h += `<path d="${dW}" fill="none" stroke="var(--blue)" stroke-width="2"/>`;
+    // Employment line (right axis, red solid)
+    const dE = series.map((p,i)=>(i===0?'M':'L')+xScale(p.year).toFixed(1)+','+yEmp(empAbs[i]).toFixed(1)).join(' ');
+    h += `<path d="${dE}" fill="none" stroke="var(--red)" stroke-width="3"/>`;
+
+    // Axes frame
+    h += `<line x1="${M.left}" x2="${W-M.right}" y1="${M.top+ch}" y2="${M.top+ch}" stroke="var(--chart-axis)" stroke-width="1.3"/>`;
+    h += `<line x1="${M.left}" x2="${M.left}" y1="${M.top}" y2="${M.top+ch}" stroke="var(--blue)" stroke-width="1.1"/>`;
+    h += `<line x1="${W-M.right}" x2="${W-M.right}" y1="${M.top}" y2="${M.top+ch}" stroke="var(--red)" stroke-width="1.1"/>`;
+
+    // Hover layer
+    h += `<g id="${svgId}-hover" style="pointer-events:none;visibility:hidden"></g>`;
+    h += `<rect id="${svgId}-capture" x="${M.left}" y="${M.top}" width="${cw}" height="${ch}" fill="transparent" style="cursor:crosshair"/>`;
+    svg.innerHTML = h;
+
+    const hover = $(`${svgId}-hover`), capture = $(`${svgId}-capture`);
+    const showAt = (clientX) => {
+      const pt = svg.createSVGPoint(); pt.x = clientX; pt.y = 0;
+      const sx = pt.matrixTransform(svg.getScreenCTM().inverse()).x;
+      let yr = Math.max(0, Math.min(timeHorizonYears, (sx - M.left) / cw * timeHorizonYears));
+      const idx = Math.round(yr / timeHorizonYears * (series.length - 1));
+      const p = series[idx], ex = xScale(p.year);
+      const eY = yEmp(empAbs[idx]), wY = yWage(wageAbs[idx]);
+      const lbl = `${p.year.toFixed(0)}y · emp ${fmtE(empAbs[idx])} · wage ${fmtW(wageAbs[idx])}`;
+      const tw = lbl.length * 5.7 + 12;
+      let bx = ex + 8; if (bx + tw > W - 2) bx = ex - 8 - tw;
+      let g = `<line x1="${ex}" x2="${ex}" y1="${M.top}" y2="${M.top+ch}" class="chart-hover-line"/>`;
+      g += `<circle cx="${ex}" cy="${eY}" r="4" fill="var(--red)" class="chart-hover-dot"/>`;
+      g += `<circle cx="${ex}" cy="${wY}" r="4" fill="var(--blue)" class="chart-hover-dot"/>`;
+      g += `<rect class="chart-tip-bg" x="${bx}" y="${M.top-2}" width="${tw}" height="18" rx="2"/>`;
+      g += `<text class="chart-tip" x="${bx+6}" y="${M.top+11}">${lbl}</text>`;
+      hover.innerHTML = g; hover.style.visibility = 'visible';
+    };
+    capture.addEventListener('mousemove', e => showAt(e.clientX));
+    capture.addEventListener('mouseleave', () => hover.style.visibility = 'hidden');
+    capture.addEventListener('touchstart', e => showAt(e.touches[0].clientX), {passive:true});
+    capture.addEventListener('touchmove',  e => showAt(e.touches[0].clientX), {passive:true});
+  }
+
+  function drawLineChart(svgId, series, valueKey, opts) {
+    const svg = $(svgId);
+    const vb = svg.viewBox.baseVal;
+    const W = vb.width, H = vb.height;
+    const M = opts.margin || { top: 16, right: 16, bottom: 32, left: 46 };
+    const cw = W - M.left - M.right, ch = H - M.top - M.bottom;
+    const log = !!opts.logScale;
+    const fmtY = opts.fmtY || (v => (v*100).toFixed(0) + '%');
+    const fmtVal = opts.fmtVal || fmtY;
+
+    let yMin = opts.yMin !== undefined ? opts.yMin : 0;
+    let yMax = opts.yMax;
+    if (yMax === undefined) {
+      yMax = 1; for (const p of series) yMax = Math.max(yMax, p[valueKey]);
+      yMin = 0;  for (const p of series) yMin = Math.min(yMin, p[valueKey]);
+      if (opts.extraLine) { // include the overlaid line in the range
+        for (const p of series) { yMax = Math.max(yMax, p[opts.extraLine.key]); yMin = Math.min(yMin, p[opts.extraLine.key]); }
+      }
+      yMax *= 1.08;
+    }
+    const xScale = yr => M.left + (yr / timeHorizonYears) * cw;
+    const yScale = log
+      ? v => M.top + ch - ((Math.log10(Math.max(v, yMin)) - Math.log10(yMin)) / (Math.log10(yMax) - Math.log10(yMin))) * ch
+      : v => M.top + ch - ((v - yMin) / (yMax - yMin)) * ch;
+    let h = '';
+
+    // ---- Y gridlines + labels ----
+    let yTicks;
+    if (opts.yTicks) {
+      yTicks = opts.yTicks;
+    } else {
+      yTicks = [];
+      const span = yMax - yMin;
+      const yStep = span > 4 ? 1 : (span > 1.5 ? 0.5 : 0.25);
+      for (let v = Math.ceil(yMin / yStep) * yStep; v <= yMax + 1e-9; v += yStep) yTicks.push(v);
+    }
+    for (const v of yTicks) {
+      const y = yScale(v);
+      h += `<line x1="${M.left}" x2="${W-M.right}" y1="${y}" y2="${y}" stroke="var(--chart-grid)" stroke-width="0.5" stroke-dasharray="2,3"/>`;
+      h += `<text x="${M.left-8}" y="${y+4}" text-anchor="end" font-family="JetBrains Mono, monospace" font-size="10" fill="var(--chart-label)">${fmtY(v)}</text>`;
+    }
+    // ---- Baseline line (today's reference value): drawn as its own dashed line, color-coded. ----
+    if (opts.baseline !== undefined && opts.baseline >= yMin && opts.baseline <= yMax) {
+      const yB = yScale(opts.baseline);
+      const baseStroke = opts.baselineColor || 'var(--chart-axis)';
+      h += `<line x1="${M.left}" x2="${W-M.right}" y1="${yB}" y2="${yB}" stroke="${baseStroke}" stroke-width="1.3" stroke-dasharray="5,4" opacity="0.9"/>`;
+      h += `<text x="${W-M.right-4}" y="${yB-4}" text-anchor="end" font-family="JetBrains Mono, monospace" font-size="9" fill="${baseStroke}" opacity="0.9">today</text>`;
+    }
+    // ---- X gridlines + labels ----
+    for (let yr = 0; yr <= timeHorizonYears; yr += 5) {
+      const x = xScale(yr);
+      h += `<line x1="${x}" x2="${x}" y1="${M.top+ch}" y2="${M.top+ch+4}" stroke="var(--chart-axis)" stroke-width="1"/>`;
+      h += `<text x="${x}" y="${M.top+ch+18}" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="10" fill="var(--chart-label)">${yr}y</text>`;
+    }
+    // ---- Curve ----
+    const d = series.map((p,i)=>(i===0?'M':'L')+xScale(p.year).toFixed(1)+','+yScale(p[valueKey]).toFixed(1)).join(' ');
+    if (opts.fill) {
+      const area = d + ` L${xScale(timeHorizonYears).toFixed(1)},${yScale(yMin).toFixed(1)} L${xScale(0).toFixed(1)},${yScale(yMin).toFixed(1)} Z`;
+      h += `<path d="${area}" fill="${opts.color}" opacity="0.08"/>`;
+    }
+    h += `<path d="${d}" fill="none" stroke="${opts.color}" stroke-width="${opts.width||2.5}"/>`;
+
+    // Optional secondary line (e.g. ungated "brain" capability for hand-work).
+    if (opts.extraLine) {
+      const el = opts.extraLine;
+      const d2 = series.map((p,i)=>(i===0?'M':'L')+xScale(p.year).toFixed(1)+','+yScale(p[el.key]).toFixed(1)).join(' ');
+      h += `<path d="${d2}" fill="none" stroke="${el.color}" stroke-width="${el.width||1.3}" stroke-dasharray="${el.dash||'4,3'}" opacity="0.85"/>`;
+      h += `<text x="${W-M.right-2}" y="${yScale(series[series.length-1][el.key])-5}" text-anchor="end" font-family="JetBrains Mono, monospace" font-size="8" fill="${el.color}">${el.label||''}</text>`;
+    }
+
+    if (opts.thresholds) {
+      for (const t of opts.thresholds) {
+        if (!isFinite(t.year) || t.year < 0 || t.year > timeHorizonYears) continue;
+        const x = xScale(t.year), y = yScale(t.p);
+        h += `<line x1="${x}" x2="${x}" y1="${M.top}" y2="${M.top+ch}" stroke="${opts.color}" stroke-width="0.8" stroke-dasharray="2,3" opacity="0.55"/>`;
+        h += `<circle cx="${x}" cy="${y}" r="3" fill="${opts.color}"/>`;
+        h += `<text x="${x+3}" y="${M.top+9}" font-family="JetBrains Mono, monospace" font-size="8" fill="${opts.color}">${(t.p*100).toFixed(0)}% · ${t.year.toFixed(1)}y</text>`;
+      }
+    }
+    // ---- Axes ----
+    h += `<line x1="${M.left}" x2="${W-M.right}" y1="${M.top+ch}" y2="${M.top+ch}" stroke="var(--chart-axis)" stroke-width="1.3"/>`;
+    h += `<line x1="${M.left}" x2="${M.left}" y1="${M.top}" y2="${M.top+ch}" stroke="var(--chart-axis)" stroke-width="1.3"/>`;
+    // ---- Hover layer (group, populated by JS handlers) ----
+    h += `<g id="${svgId}-hover" style="pointer-events:none;visibility:hidden"></g>`;
+    h += `<rect id="${svgId}-capture" x="${M.left}" y="${M.top}" width="${cw}" height="${ch}" fill="transparent" style="cursor:crosshair"/>`;
+    svg.innerHTML = h;
+
+    // ---- Wire interactivity ----
+    const hover = $(`${svgId}-hover`);
+    const capture = $(`${svgId}-capture`);
+    const showAt = (clientX) => {
+      const pt = svg.createSVGPoint();
+      pt.x = clientX; pt.y = 0;
+      const sx = pt.matrixTransform(svg.getScreenCTM().inverse()).x;
+      let yr = (sx - M.left) / cw * timeHorizonYears;
+      yr = Math.max(0, Math.min(timeHorizonYears, yr));
+      const idx = Math.round(yr / timeHorizonYears * (series.length - 1));
+      const p = series[idx];
+      const px = xScale(p.year), py = yScale(p[valueKey]);
+      const extraTxt = opts.extraLine ? ` · ${opts.extraLine.label||'2nd'} ${(p[opts.extraLine.key]*100).toFixed(0)}` : '';
+      const label = `${p.year.toFixed(1)}y · ${fmtVal(p[valueKey])}${extraTxt}`;
+      const tw = label.length * 6.2 + 12;
+      let bx = px + 8; if (bx + tw > W - 2) bx = px - 8 - tw;
+      let g = '';
+      g += `<line x1="${M.left}" x2="${W-M.right}" y1="${py}" y2="${py}" class="chart-hover-line"/>`;
+      g += `<line x1="${px}" x2="${px}" y1="${M.top}" y2="${M.top+ch}" class="chart-hover-line"/>`;
+      g += `<circle cx="${px}" cy="${py}" r="4.5" fill="${opts.color}" class="chart-hover-dot"/>`;
+      if (opts.extraLine) g += `<circle cx="${px}" cy="${yScale(p[opts.extraLine.key])}" r="4" fill="${opts.extraLine.color}" class="chart-hover-dot"/>`;
+      g += `<rect class="chart-tip-bg" x="${bx}" y="${py-22}" width="${tw}" height="18" rx="2"/>`;
+      g += `<text class="chart-tip" x="${bx+6}" y="${py-9}">${label}</text>`;
+      hover.innerHTML = g;
+      hover.style.visibility = 'visible';
+    };
+    const hide = () => { hover.style.visibility = 'hidden'; };
+    capture.addEventListener('mousemove', e => showAt(e.clientX));
+    capture.addEventListener('mouseleave', hide);
+    capture.addEventListener('touchstart', e => { showAt(e.touches[0].clientX); }, {passive:true});
+    capture.addEventListener('touchmove',  e => { showAt(e.touches[0].clientX); }, {passive:true});
+  }
+
+  function render() {
+    if (!currentProfile) return;
+    const prof = currentProfile.profession || 'this profession';
+    const profObj = profileFromCurrent();
+    const series = simulate(profObj);
+    const gompertz = gompertzParams(profObj.currentAutomatable, profObj.fiveYearAutomatable);
+
+    // Wage (left chart) and Employment (right chart) — separate side-by-side charts.
+    const bls = currentProfile.bls;
+    const empBase  = (bls && bls.employment) ? bls.employment : 100;       // real headcount, or index 100=today
+    const wageBase = (bls && bls.wage)       ? bls.wage       : 100;       // real $/yr, or index 100=today
+    const empAbsKey  = '_empAbs';
+    const wageAbsKey = '_wageAbs';
+    for (const p of series) {
+      p[empAbsKey]  = p.employment * empBase;
+      p[wageAbsKey] = p.wage       * wageBase;
+    }
+    // Y-range for each: include the baseline (today) value so it's visible.
+    const empVals  = series.map(p => p[empAbsKey]);
+    const wageVals = series.map(p => p[wageAbsKey]);
+    const empT  = niceTicks(Math.min(empBase,  ...empVals,  0), Math.max(empBase,  ...empVals),  5);
+    const wageT = niceTicks(Math.min(wageBase, ...wageVals, 0), Math.max(wageBase, ...wageVals), 5);
+    const fmtE  = (bls && bls.employment) ? fmtCount  : (v => v.toFixed(0));
+    const fmtW  = (bls && bls.wage)       ? fmtDollar : (v => v.toFixed(0));
+
+    drawLineChart('wageChart', series, wageAbsKey, {
+      color: 'var(--blue)', width: 2.5, fill: true,
+      yMin: wageT.lo, yMax: wageT.hi, yTicks: wageT.ticks,
+      baseline: wageBase, baselineColor: 'var(--blue)', fmtY: fmtW, fmtVal: fmtW,
+    });
+    drawLineChart('employmentChart', series, empAbsKey, {
+      color: 'var(--red)', width: 2.5, fill: true,
+      yMin: empT.lo, yMax: empT.hi, yTicks: empT.ticks,
+      baseline: empBase, baselineColor: 'var(--red)', fmtY: fmtE, fmtVal: fmtE,
+    });
+    // Capability thresholds computed on the EFFECTIVE (gated) curve, by scanning.
+    const effThresholds = [0.5, 0.75, 0.9, 0.99].map(p => {
+      let yr = null;
+      for (let k = 1; k < series.length; k++) {
+        if (series[k-1].capability < p && series[k].capability >= p) {
+          const a = series[k-1], b = series[k];
+          yr = a.year + (p - a.capability) / (b.capability - a.capability) * (b.year - a.year);
+          break;
+        }
+      }
+      return { p, year: yr == null ? Infinity : yr };
+    });
+    const gated = currentProfile.workKind === 'hand';
+    drawLineChart('capabilityChart', series, 'capability', {
+      color: 'var(--blue)', width: 2.5, yMin: 0, yMax: 1.05, fill: true,
+      thresholds: effThresholds,
+    });
+
+    // Demand chart: log scale only when range is big (>=10×). For modest ranges, linear with nice ticks.
+    let mMax = 1, mMin = 1;
+    for (const p of series) { mMax = Math.max(mMax, p.marketSize); mMin = Math.min(mMin, p.marketSize); }
+    let demandOpts;
+    if (mMax >= 10 || mMin <= 0.1) {
+      const decadesUp = Math.max(0, Math.ceil(Math.log10(mMax)));
+      const decadesDn = Math.min(0, Math.floor(Math.log10(Math.max(mMin, 1e-3))));
+      const yTicks = [];
+      for (let e = decadesDn; e <= decadesUp; e++) yTicks.push(Math.pow(10, e));
+      demandOpts = {
+        color: 'var(--green)', width: 2.5, fill: true, logScale: true,
+        yMin: Math.pow(10, decadesDn), yMax: Math.pow(10, decadesUp), yTicks,
+        fmtY: v => (v >= 1 ? v.toLocaleString('en-US', {maximumFractionDigits:0}) : v) + '×',
+        fmtVal: v => (v*100).toFixed(0) + (v >= 1 ? '  (' + v.toFixed(1) + '×)' : ''),
+        baseline: 1, baselineColor: 'var(--green)',
+      };
+    } else {
+      // Linear scale with niceTicks for readable intermediate values
+      const t = niceTicks(Math.min(1, mMin), Math.max(1, mMax) * 1.05, 5);
+      demandOpts = {
+        color: 'var(--green)', width: 2.5, fill: true,
+        yMin: t.lo, yMax: t.hi, yTicks: t.ticks,
+        fmtY: v => v.toFixed(v < 10 && v % 1 !== 0 ? 1 : 0) + '×',
+        fmtVal: v => v.toFixed(2) + '× (' + (v*100).toFixed(0) + ')',
+        baseline: 1, baselineColor: 'var(--green)',
+      };
+    }
+    drawLineChart('marketChart', series, 'marketSize', demandOpts);
+
+    const blsT = currentProfile.bls;
+    const hasIncome = !!(blsT && blsT.wage);
+    $('wageTitle').textContent       = hasIncome ? 'Avg. Yearly Income' : 'Avg. Yearly Income Index (100=today)';
+    $('employmentTitle').textContent = 'Employment';
+    $('marketTitle').textContent     = 'Demand for ' + prof + ' (100 = today)';
+
+    let narrative;
+    const dest = series[series.length - 1];
+    let trough = series[0], peak = series[0];
+    for (const p of series) { if (p.employment < trough.employment) trough = p; if (p.employment > peak.employment) peak = p; }
+    const troughPct = (trough.employment-1)*100, peakPct = (peak.employment-1)*100, destPct = (dest.employment-1)*100;
+    if (peakPct > 25 && destPct < -10) narrative = 'A boom then a bust: cheap AI tools expand the market and hiring surges, until automation crosses the midpoint and the human share collapses.';
+    else if (destPct > 5) narrative = 'Long-run growth: the market expands faster than automation removes the human contribution.';
+    else if (destPct > -10 && troughPct > -15) narrative = 'A near-wash. The profession survives roughly intact, with adjustment along the way.';
+    else if (destPct > -40) narrative = 'A persistent contraction. Substitution outpaces market expansion.';
+    else narrative = 'A steep decline. Once AI covers most of the job, little human work remains no matter how the market grows.';
+    if (currentProfile.commentary) narrative = currentProfile.commentary;
+    $('employmentNarrative').textContent = narrative;
+    $('incomeNarrative').textContent = currentProfile.incomeNote || '';
+  }
+
+  function renderTable() {
+    const conf = $('tableConfidence');
+    conf.textContent = (currentProfile.confidence || 'medium') + ' confidence';
+    conf.className = 'conf-badge ' + (currentProfile.confidence || 'medium');
+    $('tableRationale').textContent = currentProfile.rationale || '';
+
+    const kindLabel = { mind: 'Mind', hand: 'Hand', heart: 'Heart' }[currentProfile.workKind] || 'Mind';
+    $('tableProfession').textContent = currentProfile.profession;
+    $('tableKind').innerHTML =
+      `<span class="kind-icon ${currentProfile.workKind||'mind'}">${kindIconSvg(currentProfile.workKind)} ${kindLabel}</span>`;
+
+    // rows: name, value, desc, and (if editable) the override key
+    const rows = [
+      { name: "Today's AI productivity", val: P('productivityToday').toFixed(1) + '×', desc: 'How many times faster AI is at the automatable tasks today.', key: 'productivityToday' },
+      { name: 'Productivity ceiling', val: Math.round(P('productivityCeiling')) + '×', desc: 'How many times faster AI eventually gets at those tasks.', key: 'productivityCeiling' },
+      { name: 'Demand elasticity', val: P('demandElasticity').toFixed(1) + '×', desc: 'Percentage increase in demand for every 1% drop in price.', key: 'demandElasticity' },
+      { name: 'AI cost today', val: (P('aiCostToday')*100).toFixed(0) + '%', desc: `AI hour as fraction of a human hour. Decays ${(P('aiCostDecayRate')*100).toFixed(0)}%/year.`, key: 'aiCostToday' },
+      { name: 'AI cost decay', val: (P('aiCostDecayRate')*100).toFixed(0) + '%/yr', desc: 'How fast the AI cost falls each year.', key: 'aiCostDecayRate' },
+      { name: 'Labor cost share', val: (P('laborCostShare')*100).toFixed(0) + '%', desc: 'Share of the service price that is human labor.', key: 'laborCostShare' },
+      { name: 'Complementarity', val: P('complementarity').toFixed(1) + '×', desc: 'How much AI also speeds up the human-only tasks.', key: 'complementarity' },
+      { name: 'Support fraction', val: (P('supportFraction')*100).toFixed(0) + '%', desc: 'Share of the job that is automatable support work (marketing, admin, editing) vs. core skill.', key: 'supportFraction' },
+      { name: 'Reach gain', val: '+' + P('reachCeiling').toFixed(1) + '×', desc: 'Extra core output one human can serve once AI absorbs the support work. High for broadcastable work.', key: 'reachCeiling' },
+      { name: 'Hiring speed', val: P('hiringAdjustmentYears').toFixed(1) + ' yr', desc: 'How fast the workforce can grow (credential barrier).', key: 'hiringAdjustmentYears' },
+      { name: 'Demand absorption', val: P('demandAbsorptionYears').toFixed(1) + ' yr', desc: 'How long the market takes to absorb a price drop.', key: 'demandAbsorptionYears' },
+    ];
+
+    // Robotics gate — only relevant for hand-work. Arrival is the main slider above.
+    if (currentProfile.workKind === 'hand') {
+      const arrival = +($('handArrivalSlider') || {}).value || P('robotArrivalYear');
+      rows.push(
+        { name: 'Robot arrival', val: Math.round(arrival) + ' yr', desc: 'Set by the slider above — when affordable, dexterous robots reach meaningful deployment.' },
+        { name: 'Robot rollout', val: P('robotRampYears').toFixed(1) + ' yr', desc: 'How long deployment takes to spread once robots arrive.', key: 'robotRampYears' },
+      );
+    }
+
+    const specByKey = Object.fromEntries(EDITABLE.map(s => [s.key, s]));
+    $('parameterRows').innerHTML = rows.map((r) => {
+      const spec = specByKey[r.key];
+      const sliderHtml = spec
+        ? `<input type="range" class="param-slider" data-key="${r.key}" min="${spec.min}" max="${spec.max}" step="${spec.step}" value="${P(r.key)}">`
+        : '';
+      return `<tr><td class="pname">${r.name}${sliderHtml}</td><td class="pval">${r.val}</td><td class="pdesc">${r.desc}</td></tr>`;
+    }).join('');
+
+    // Apply locked/unlocked visual state
+    document.querySelector('.params').classList.toggle('unlocked', unlocked);
+
+    // Wire the inline sliders
+    document.querySelectorAll('.param-slider').forEach(el => {
+      el.addEventListener('input', () => {
+        const key = el.getAttribute('data-key');
+        overrides[key] = +el.value;
+        // Keep the top-level elasticity slider in sync if that's what changed.
+        if (key === 'demandElasticity') {
+          const top = $('elasticitySlider');
+          if (top) {
+            top.value = +el.value;
+            $('elasticityValue').textContent = (+el.value).toFixed(1) + '×';
+          }
+        }
+        renderTable(); render();
+      });
+    });
+  }
+
+  // ===== Anthropic API call (artifact mode) =====
+  // ===== BLS SOC dataset (OEWS May 2025) for real headcount + wage anchors =====
+  const OCC = [{"c":"11-1011","t":"Chief Executives","e":204350,"med":213990,"mean":269630},{"c":"11-1021","t":"General and Operations Managers","e":3503020,"med":105770,"mean":134940},{"c":"11-2011","t":"Advertising and Promotions Managers","e":21470,"med":133660,"mean":154280},{"c":"11-2021","t":"Marketing Managers","e":395240,"med":166790,"mean":177770},{"c":"11-2022","t":"Sales Managers","e":637080,"med":148270,"mean":164350},{"c":"11-2032","t":"Public Relations Managers","e":74850,"med":146910,"mean":164760},{"c":"11-2033","t":"Fundraising Managers","e":38810,"med":125470,"mean":140020},{"c":"11-3012","t":"Administrative Services Managers","e":263960,"med":114130,"mean":129870},{"c":"11-3013","t":"Facilities Managers","e":156180,"med":106660,"mean":116890},{"c":"11-3021","t":"Computer and Information Systems Managers","e":670570,"med":175140,"mean":192160},{"c":"11-3031","t":"Financial Managers","e":841710,"med":166570,"mean":186910},{"c":"11-3051","t":"Industrial Production Managers","e":246250,"med":126060,"mean":134170},{"c":"11-3061","t":"Purchasing Managers","e":84320,"med":148080,"mean":156360},{"c":"11-3071","t":"Transportation, Storage, and Distribution Managers","e":221180,"med":107230,"mean":121600},{"c":"11-3111","t":"Compensation and Benefits Managers","e":22940,"med":149230,"mean":162640},{"c":"11-3121","t":"Human Resources Managers","e":220660,"med":149280,"mean":164230},{"c":"11-3131","t":"Training and Development Managers","e":48050,"med":133000,"mean":148370},{"c":"11-9013","t":"Farmers, Ranchers, and Other Agricultural Managers","e":6500,"med":89900,"mean":99820},{"c":"11-9021","t":"Construction Managers","e":380360,"med":114990,"mean":124360},{"c":"11-9031","t":"Education and Childcare Administrators, Preschool and Daycare","e":73660,"med":59300,"mean":64800},{"c":"11-9032","t":"Education Administrators, Kindergarten through Secondary","e":328330,"med":105870,"mean":116100},{"c":"11-9033","t":"Education Administrators, Postsecondary","e":180470,"med":104590,"mean":126540},{"c":"11-9039","t":"Education Administrators, All Other","e":55130,"med":95200,"mean":101900},{"c":"11-9041","t":"Architectural and Engineering Managers","e":220260,"med":171270,"mean":181540},{"c":"11-9051","t":"Food Service Managers","e":238430,"med":69390,"mean":74880},{"c":"11-9071","t":"Gambling Managers","e":5030,"med":93220,"mean":103050},{"c":"11-9072","t":"Entertainment and Recreation Managers, Except Gambling","e":37980,"med":79520,"mean":89750},{"c":"11-9081","t":"Lodging Managers","e":42620,"med":69250,"mean":78740},{"c":"11-9111","t":"Medical and Health Services Managers","e":597080,"med":123860,"mean":140970},{"c":"11-9121","t":"Natural Sciences Managers","e":108690,"med":167220,"mean":180250},{"c":"11-9131","t":"Postmasters and Mail Superintendents","e":13810,"med":96660,"mean":97360},{"c":"11-9141","t":"Property, Real Estate, and Community Association Managers","e":311180,"med":69990,"mean":83710},{"c":"11-9151","t":"Social and Community Service Managers","e":209330,"med":80390,"mean":88880},{"c":"11-9161","t":"Emergency Management Directors","e":13500,"med":93330,"mean":102420},{"c":"11-9171","t":"Funeral Home Managers","e":13910,"med":78790,"mean":92840},{"c":"11-9179","t":"Personal Service Managers, All Other","e":10450,"med":69770,"mean":78190},{"c":"11-9199","t":"Managers, All Other","e":622190,"med":141900,"mean":153890},{"c":"13-1011","t":"Agents and Business Managers of Artists, Performers, and Athletes","e":12620,"med":82890,"mean":141580},{"c":"13-1020","t":"Buyers and Purchasing Agents","e":491430,"med":77710,"mean":83770},{"c":"13-1031","t":"Claims Adjusters, Examiners, and Investigators","e":324230,"med":78000,"mean":80470},{"c":"13-1032","t":"Insurance Appraisers, Auto Damage","e":11560,"med":78240,"mean":78900},{"c":"13-1041","t":"Compliance Officers","e":417070,"med":80730,"mean":88400},{"c":"13-1051","t":"Cost Estimators","e":224220,"med":78740,"mean":85390},{"c":"13-1071","t":"Human Resources Specialists","e":912430,"med":75940,"mean":81990},{"c":"13-1074","t":"Farm Labor Contractors","e":310,"med":58460,"mean":58470},{"c":"13-1075","t":"Labor Relations Specialists","e":64810,"med":95420,"mean":98720},{"c":"13-1081","t":"Logisticians","e":251040,"med":82320,"mean":89730},{"c":"13-1082","t":"Project Management Specialists","e":1066670,"med":102320,"mean":110740},{"c":"13-1111","t":"Management Analysts","e":898280,"med":101860,"mean":113790},{"c":"13-1121","t":"Meeting, Convention, and Event Planners","e":142860,"med":61160,"mean":66520},{"c":"13-1131","t":"Fundraisers","e":111040,"med":72550,"mean":77200},{"c":"13-1141","t":"Compensation, Benefits, and Job Analysis Specialists","e":112380,"med":78210,"mean":84330},{"c":"13-1151","t":"Training and Development Specialists","e":458300,"med":69280,"mean":75550},{"c":"13-1161","t":"Market Research Analysts and Marketing Specialists","e":899580,"med":78760,"mean":89490},{"c":"13-1199","t":"Business Operations Specialists, All Other","e":1087090,"med":83050,"mean":93970},{"c":"13-2011","t":"Accountants and Auditors","e":1449500,"med":83680,"mean":94750},{"c":"13-2020","t":"Property Appraisers and Assessors","e":57070,"med":67960,"mean":75770},{"c":"13-2031","t":"Budget Analysts","e":47160,"med":91640,"mean":96370},{"c":"13-2041","t":"Credit Analysts","e":64390,"med":83510,"mean":100850},{"c":"13-2051","t":"Financial and Investment Analysts","e":361980,"med":102740,"mean":116800},{"c":"13-2052","t":"Personal Financial Advisors","e":266800,"med":105070,"mean":156670},{"c":"13-2053","t":"Insurance Underwriters","e":105420,"med":81370,"mean":93700},{"c":"13-2054","t":"Financial Risk Specialists","e":63850,"med":117330,"mean":124420},{"c":"13-2061","t":"Financial Examiners","e":67830,"med":94160,"mean":106240},{"c":"13-2071","t":"Credit Counselors","e":27770,"med":52230,"mean":57210},{"c":"13-2072","t":"Loan Officers","e":274330,"med":76690,"mean":87790},{"c":"13-2081","t":"Tax Examiners and Collectors, and Revenue Agents","e":56610,"med":62370,"mean":70520},{"c":"13-2082","t":"Tax Preparers","e":76480,"med":54920,"mean":60930},{"c":"13-2099","t":"Financial Specialists, All Other","e":132130,"med":81100,"mean":93810},{"c":"15-1211","t":"Computer Systems Analysts","e":519530,"med":105850,"mean":114610},{"c":"15-1212","t":"Information Security Analysts","e":190650,"med":129180,"mean":132510},{"c":"15-1221","t":"Computer and Information Research Scientists","e":37200,"med":140300,"mean":153930},{"c":"15-1231","t":"Computer Network Support Specialists","e":146190,"med":76220,"mean":81870},{"c":"15-1232","t":"Computer User Support Specialists","e":717190,"med":61860,"mean":67330},{"c":"15-1241","t":"Computer Network Architects","e":179740,"med":134050,"mean":139580},{"c":"15-1242","t":"Database Administrators","e":69990,"med":104620,"mean":110090},{"c":"15-1243","t":"Database Architects","e":67140,"med":139500,"mean":144440},{"c":"15-1244","t":"Network and Computer Systems Administrators","e":314340,"med":99130,"mean":103680},{"c":"15-1251","t":"Computer Programmers","e":92230,"med":100390,"mean":105170},{"c":"15-1252","t":"Software Developers","e":1687890,"med":135980,"mean":148100},{"c":"15-1253","t":"Software Quality Assurance Analysts and Testers","e":186740,"med":104300,"mean":111490},{"c":"15-1254","t":"Web Developers","e":70190,"med":92650,"mean":98770},{"c":"15-1255","t":"Web and Digital Interface Designers","e":113330,"med":104000,"mean":117490},{"c":"15-1299","t":"Computer Occupations, All Other","e":435370,"med":116580,"mean":122230},{"c":"15-2011","t":"Actuaries","e":26670,"med":130000,"mean":141480},{"c":"15-2021","t":"Mathematicians","e":2030,"med":126710,"mean":129260},{"c":"15-2031","t":"Operations Research Analysts","e":108510,"med":88940,"mean":99730},{"c":"15-2041","t":"Statisticians","e":29030,"med":105650,"mean":115700},{"c":"15-2051","t":"Data Scientists","e":262440,"med":120230,"mean":126800},{"c":"15-2099","t":"Mathematical Science Occupations, All Other","e":3720,"med":81490,"mean":91550},{"c":"17-1011","t":"Architects, Except Landscape and Naval","e":106770,"med":99280,"mean":106260},{"c":"17-1012","t":"Landscape Architects","e":19600,"med":79870,"mean":88780},{"c":"17-1021","t":"Cartographers and Photogrammetrists","e":14260,"med":81390,"mean":86690},{"c":"17-1022","t":"Surveyors","e":50830,"med":75440,"mean":80570},{"c":"17-2011","t":"Aerospace Engineers","e":67710,"med":134960,"mean":142060},{"c":"17-2021","t":"Agricultural Engineers","e":1480,"med":98590,"mean":108230},{"c":"17-2031","t":"Bioengineers and Biomedical Engineers","e":23480,"med":109370,"mean":116890},{"c":"17-2041","t":"Chemical Engineers","e":21070,"med":125040,"mean":129980},{"c":"17-2051","t":"Civil Engineers","e":367840,"med":100840,"mean":108670},{"c":"17-2061","t":"Computer Hardware Engineers","e":76660,"med":161740,"mean":162670},{"c":"17-2071","t":"Electrical Engineers","e":198750,"med":120630,"mean":125100},{"c":"17-2072","t":"Electronics Engineers, Except Computer","e":96900,"med":130220,"mean":137280},{"c":"17-2081","t":"Environmental Engineers","e":38340,"med":107110,"mean":112910},{"c":"17-2111","t":"Health and Safety Engineers, Except Mining Safety Engineers and Inspectors","e":21450,"med":115160,"mean":119770},{"c":"17-2112","t":"Industrial Engineers","e":365740,"med":102440,"mean":109900},{"c":"17-2121","t":"Marine Engineers and Naval Architects","e":8250,"med":112230,"mean":124180},{"c":"17-2131","t":"Materials Engineers","e":22770,"med":112860,"mean":120250},{"c":"17-2141","t":"Mechanical Engineers","e":296810,"med":104110,"mean":113610},{"c":"17-2151","t":"Mining and Geological Engineers, Including Mining Safety Engineers","e":6080,"med":106220,"mean":115410},{"c":"17-2161","t":"Nuclear Engineers","e":15280,"med":133970,"mean":140420},{"c":"17-2171","t":"Petroleum Engineers","e":18060,"med":144910,"mean":157150},{"c":"17-2199","t":"Engineers, All Other","e":154070,"med":122930,"mean":125330},{"c":"17-3011","t":"Architectural and Civil Drafters","e":103700,"med":66150,"mean":70740},{"c":"17-3012","t":"Electrical and Electronics Drafters","e":17920,"med":76870,"mean":81280},{"c":"17-3013","t":"Mechanical Drafters","e":39960,"med":71550,"mean":75060},{"c":"17-3019","t":"Drafters, All Other","e":14470,"med":63520,"mean":68250},{"c":"17-3021","t":"Aerospace Engineering and Operations Technologists and Technicians","e":11280,"med":82890,"mean":91310},{"c":"17-3022","t":"Civil Engineering Technologists and Technicians","e":68520,"med":64950,"mean":68990},{"c":"17-3023","t":"Electrical and Electronic Engineering Technologists and Technicians","e":95130,"med":78190,"mean":80680},{"c":"17-3024","t":"Electro-Mechanical and Mechatronics Technologists and Technicians","e":15520,"med":73900,"mean":76420},{"c":"17-3025","t":"Environmental Engineering Technologists and Technicians","e":12190,"med":59920,"mean":64870},{"c":"17-3026","t":"Industrial Engineering Technologists and Technicians","e":75570,"med":66120,"mean":70700},{"c":"17-3027","t":"Mechanical Engineering Technologists and Technicians","e":36190,"med":74510,"mean":76380},{"c":"17-3028","t":"Calibration Technologists and Technicians","e":16540,"med":67820,"mean":74170},{"c":"17-3029","t":"Engineering Technologists and Technicians, Except Drafters, All Other","e":59930,"med":78350,"mean":80960},{"c":"17-3031","t":"Surveying and Mapping Technicians","e":58010,"med":54240,"mean":58000},{"c":"19-1011","t":"Animal Scientists","e":3100,"med":68940,"mean":88350},{"c":"19-1012","t":"Food Scientists and Technologists","e":13060,"med":88720,"mean":95360},{"c":"19-1013","t":"Soil and Plant Scientists","e":15730,"med":78850,"mean":87720},{"c":"19-1021","t":"Biochemists and Biophysicists","e":33830,"med":127410,"mean":129840},{"c":"19-1022","t":"Microbiologists","e":18940,"med":87990,"mean":97600},{"c":"19-1023","t":"Zoologists and Wildlife Biologists","e":18120,"med":76780,"mean":83020},{"c":"19-1029","t":"Biological Scientists, All Other","e":55850,"med":98920,"mean":106330},{"c":"19-1031","t":"Conservation Scientists","e":25950,"med":73010,"mean":77130},{"c":"19-1032","t":"Foresters","e":10430,"med":76400,"mean":79170},{"c":"19-1041","t":"Epidemiologists","e":12090,"med":87220,"mean":97890},{"c":"19-1042","t":"Medical Scientists, Except Epidemiologists","e":172340,"med":103410,"mean":116840},{"c":"19-1099","t":"Life Scientists, All Other","e":7460,"med":93750,"mean":107860},{"c":"19-2011","t":"Astronomers","e":2120,"med":128820,"mean":132920},{"c":"19-2012","t":"Physicists","e":20430,"med":172250,"mean":171180},{"c":"19-2021","t":"Atmospheric and Space Scientists","e":10000,"med":99070,"mean":106110},{"c":"19-2031","t":"Chemists","e":82770,"med":91240,"mean":100450},{"c":"19-2032","t":"Materials Scientists","e":8470,"med":117790,"mean":126180},{"c":"19-2041","t":"Environmental Scientists and Specialists, Including Health","e":89250,"med":82220,"mean":91680},{"c":"19-2042","t":"Geoscientists, Except Hydrologists and Geographers","e":23470,"med":101920,"mean":116150},{"c":"19-2043","t":"Hydrologists","e":5850,"med":96600,"mean":103600},{"c":"19-2099","t":"Physical Scientists, All Other","e":22300,"med":122570,"mean":129230},{"c":"19-3011","t":"Economists","e":17790,"med":124720,"mean":142130},{"c":"19-3022","t":"Survey Researchers","e":8290,"med":69460,"mean":79580},{"c":"19-3032","t":"Industrial-Organizational Psychologists","e":790,"med":193950,"mean":170230},{"c":"19-3033","t":"Clinical and Counseling Psychologists","e":75990,"med":100580,"mean":112750},{"c":"19-3034","t":"School Psychologists","e":63940,"med":95990,"mean":99160},{"c":"19-3039","t":"Psychologists, All Other","e":18820,"med":110840,"mean":111210},{"c":"19-3041","t":"Sociologists","e":2260,"med":106030,"mean":114920},{"c":"19-3051","t":"Urban and Regional Planners","e":44230,"med":89320,"mean":94750},{"c":"19-3091","t":"Anthropologists and Archeologists","e":8990,"med":70770,"mean":75620},{"c":"19-3092","t":"Geographers","e":1400,"med":102040,"mean":102350},{"c":"19-3093","t":"Historians","e":3450,"med":76750,"mean":81240},{"c":"19-3094","t":"Political Scientists","e":5540,"med":142080,"mean":142510},{"c":"19-3099","t":"Social Scientists and Related Workers, All Other","e":37100,"med":101110,"mean":107690},{"c":"19-4012","t":"Agricultural Technicians","e":15130,"med":49630,"mean":53840},{"c":"19-4013","t":"Food Science Technicians","e":14600,"med":52130,"mean":56660},{"c":"19-4021","t":"Biological Technicians","e":69620,"med":57510,"mean":61380},{"c":"19-4031","t":"Chemical Technicians","e":57540,"med":60390,"mean":63900},{"c":"19-4042","t":"Environmental Science and Protection Technicians, Including Health","e":34670,"med":55090,"mean":60800},{"c":"19-4043","t":"Geological Technicians, Except Hydrologic Technicians","e":6980,"med":53350,"mean":61870},{"c":"19-4044","t":"Hydrologic Technicians","e":2840,"med":64790,"mean":69530},{"c":"19-4051","t":"Nuclear Technicians","e":6470,"med":110240,"mean":108940},{"c":"19-4061","t":"Social Science Research Assistants","e":30640,"med":61990,"mean":66140},{"c":"19-4071","t":"Forest and Conservation Technicians","e":30410,"med":54560,"mean":59060},{"c":"19-4092","t":"Forensic Science Technicians","e":19120,"med":72060,"mean":79200},{"c":"19-4099","t":"Life, Physical, and Social Science Technicians, All Other","e":73910,"med":62280,"mean":66280},{"c":"19-5011","t":"Occupational Health and Safety Specialists","e":140610,"med":90150,"mean":93860},{"c":"19-5012","t":"Occupational Health and Safety Technicians","e":30590,"med":61560,"mean":68120},{"c":"21-1012","t":"Educational, Guidance, and Career Counselors and Advisors","e":353310,"med":64330,"mean":71430},{"c":"21-1013","t":"Marriage and Family Therapists","e":66740,"med":66940,"mean":76960},{"c":"21-1015","t":"Rehabilitation Counselors","e":94740,"med":46850,"mean":51820},{"c":"21-1018","t":"Substance Abuse, Behavioral Disorder, and Mental Health Counselors","e":491930,"med":59350,"mean":64440},{"c":"21-1019","t":"Counselors, All Other","e":28580,"med":50860,"mean":58210},{"c":"21-1021","t":"Child, Family, and School Social Workers","e":392550,"med":59550,"mean":64000},{"c":"21-1022","t":"Healthcare Social Workers","e":187630,"med":67880,"mean":71790},{"c":"21-1023","t":"Mental Health and Substance Abuse Social Workers","e":132810,"med":60280,"mean":68030},{"c":"21-1029","t":"Social Workers, All Other","e":62930,"med":71900,"mean":75910},{"c":"21-1091","t":"Health Education Specialists","e":65690,"med":64070,"mean":73280},{"c":"21-1092","t":"Probation Officers and Correctional Treatment Specialists","e":89390,"med":66270,"mean":73130},{"c":"21-1093","t":"Social and Human Service Assistants","e":437860,"med":45930,"mean":47690},{"c":"21-1094","t":"Community Health Workers","e":61660,"med":51850,"mean":56180},{"c":"21-1099","t":"Community and Social Service Specialists, All Other","e":107730,"med":56730,"mean":59590},{"c":"21-2011","t":"Clergy","e":57200,"med":60810,"mean":66860},{"c":"21-2021","t":"Directors, Religious Activities and Education","e":22160,"med":52100,"mean":62100},{"c":"21-2099","t":"Religious Workers, All Other","e":15760,"med":45280,"mean":53870},{"c":"23-1011","t":"Lawyers","e":754500,"med":159670,"mean":185840},{"c":"23-1012","t":"Judicial Law Clerks","e":13290,"med":64920,"mean":72950},{"c":"23-1021","t":"Administrative Law Judges, Adjudicators, and Hearing Officers","e":16370,"med":117860,"mean":125990},{"c":"23-1022","t":"Arbitrators, Mediators, and Conciliators","e":9210,"med":75530,"mean":91010},{"c":"23-1023","t":"Judges, Magistrate Judges, and Magistrates","e":24030,"med":153990,"mean":143830},{"c":"23-2011","t":"Paralegals and Legal Assistants","e":392880,"med":62890,"mean":69700},{"c":"23-2093","t":"Title Examiners, Abstractors, and Searchers","e":48580,"med":58650,"mean":62350},{"c":"23-2099","t":"Legal Support Workers, All Other","e":46760,"med":72110,"mean":89660},{"c":"25-1011","t":"Business Teachers, Postsecondary","e":82150,"med":99080,"mean":114720},{"c":"25-1021","t":"Computer Science Teachers, Postsecondary","e":35480,"med":96980,"mean":104420},{"c":"25-1022","t":"Mathematical Science Teachers, Postsecondary","e":47670,"med":79940,"mean":91550},{"c":"25-1031","t":"Architecture Teachers, Postsecondary","e":7700,"med":96870,"mean":101250},{"c":"25-1032","t":"Engineering Teachers, Postsecondary","e":40270,"med":109270,"mean":124520},{"c":"25-1041","t":"Agricultural Sciences Teachers, Postsecondary","e":8920,"med":98700,"mean":102050},{"c":"25-1042","t":"Biological Science Teachers, Postsecondary","e":50190,"med":84620,"mean":102840},{"c":"25-1043","t":"Forestry and Conservation Science Teachers, Postsecondary","e":1520,"med":101420,"mean":102450},{"c":"25-1051","t":"Atmospheric, Earth, Marine, and Space Sciences Teachers, Postsecondary","e":9900,"med":103170,"mean":116020},{"c":"25-1052","t":"Chemistry Teachers, Postsecondary","e":19980,"med":93250,"mean":105210},{"c":"25-1053","t":"Environmental Science Teachers, Postsecondary","e":6690,"med":94980,"mean":103610},{"c":"25-1054","t":"Physics Teachers, Postsecondary","e":13090,"med":100310,"mean":111460},{"c":"25-1061","t":"Anthropology and Archeology Teachers, Postsecondary","e":5240,"med":99650,"mean":106880},{"c":"25-1062","t":"Area, Ethnic, and Cultural Studies Teachers, Postsecondary","e":11300,"med":85020,"mean":98330},{"c":"25-1063","t":"Economics Teachers, Postsecondary","e":11560,"med":123920,"mean":138850},{"c":"25-1064","t":"Geography Teachers, Postsecondary","e":3330,"med":97590,"mean":102350},{"c":"25-1065","t":"Political Science Teachers, Postsecondary","e":16970,"med":98070,"mean":108100},{"c":"25-1066","t":"Psychology Teachers, Postsecondary","e":41530,"med":80340,"mean":93860},{"c":"25-1067","t":"Sociology Teachers, Postsecondary","e":11850,"med":84290,"mean":96980},{"c":"25-1069","t":"Social Sciences Teachers, Postsecondary, All Other","e":16580,"med":72990,"mean":88390},{"c":"25-1071","t":"Health Specialties Teachers, Postsecondary","e":221270,"med":107310,"mean":147570},{"c":"25-1072","t":"Nursing Instructors and Teachers, Postsecondary","e":77960,"med":80250,"mean":86410},{"c":"25-1081","t":"Education Teachers, Postsecondary","e":60830,"med":75350,"mean":79350},{"c":"25-1082","t":"Library Science Teachers, Postsecondary","e":3630,"med":80340,"mean":88110},{"c":"25-1111","t":"Criminal Justice and Law Enforcement Teachers, Postsecondary","e":13150,"med":76590,"mean":87550},{"c":"25-1112","t":"Law Teachers, Postsecondary","e":20060,"med":128500,"mean":144770},{"c":"25-1113","t":"Social Work Teachers, Postsecondary","e":12610,"med":77570,"mean":83940},{"c":"25-1121","t":"Art, Drama, and Music Teachers, Postsecondary","e":93560,"med":78620,"mean":94700},{"c":"25-1122","t":"Communications Teachers, Postsecondary","e":29420,"med":78580,"mean":90010},{"c":"25-1123","t":"English Language and Literature Teachers, Postsecondary","e":57720,"med":78760,"mean":89580},{"c":"25-1124","t":"Foreign Language and Literature Teachers, Postsecondary","e":19830,"med":79350,"mean":89990},{"c":"25-1125","t":"History Teachers, Postsecondary","e":18790,"med":83820,"mean":96580},{"c":"25-1126","t":"Philosophy and Religion Teachers, Postsecondary","e":20460,"med":80260,"mean":92040},{"c":"25-1192","t":"Family and Consumer Sciences Teachers, Postsecondary","e":2770,"med":75870,"mean":81940},{"c":"25-1193","t":"Recreation and Fitness Studies Teachers, Postsecondary","e":12630,"med":77270,"mean":86620},{"c":"25-1194","t":"Career/Technical Education Teachers, Postsecondary","e":114110,"med":63820,"mean":72060},{"c":"25-1199","t":"Postsecondary Teachers, All Other","e":149840,"med":77640,"mean":90630},{"c":"25-2011","t":"Preschool Teachers, Except Special Education","e":478780,"med":38140,"mean":43030},{"c":"25-2012","t":"Kindergarten Teachers, Except Special Education","e":108870,"med":62680,"mean":69370},{"c":"25-2021","t":"Elementary School Teachers, Except Special Education","e":1388390,"med":63970,"mean":72650},{"c":"25-2022","t":"Middle School Teachers, Except Special and Career/Technical Education","e":620090,"med":64370,"mean":72030},{"c":"25-2023","t":"Career/Technical Education Teachers, Middle School","e":16870,"med":65030,"mean":71590},{"c":"25-2031","t":"Secondary School Teachers, Except Special and Career/Technical Education","e":1065210,"med":72040,"mean":76320},{"c":"25-2032","t":"Career/Technical Education Teachers, Secondary School","e":111420,"med":66270,"mean":72680},{"c":"25-2051","t":"Special Education Teachers, Preschool","e":29510,"med":64830,"mean":76380},{"c":"25-2052","t":"Special Education Teachers, Kindergarten and Elementary School","e":260870,"med":65120,"mean":72650},{"c":"25-2057","t":"Special Education Teachers, Middle School","e":95200,"med":66810,"mean":73780},{"c":"25-2058","t":"Special Education Teachers, Secondary School","e":163930,"med":74260,"mean":77260},{"c":"25-2059","t":"Special Education Teachers, All Other","e":33930,"med":76580,"mean":79750},{"c":"25-3011","t":"Adult Basic Education, Adult Secondary Education, and English as a Second Language Instructors","e":37310,"med":61540,"mean":65860},{"c":"25-3021","t":"Self-Enrichment Teachers","e":332110,"med":46800,"mean":54740},{"c":"25-3031","t":"Substitute Teachers, Short-Term","e":524770,"med":41670,"mean":46420},{"c":"25-3041","t":"Tutors","e":175070,"med":43350,"mean":48050},{"c":"25-3099","t":"Teachers and Instructors, All Other","e":113790,"med":66140,"mean":73880},{"c":"25-4011","t":"Archivists","e":7970,"med":64550,"mean":70640},{"c":"25-4012","t":"Curators","e":12150,"med":63420,"mean":71560},{"c":"25-4013","t":"Museum Technicians and Conservators","e":12310,"med":51440,"mean":57410},{"c":"25-4022","t":"Librarians and Media Collections Specialists","e":133790,"med":68270,"mean":72840},{"c":"25-4031","t":"Library Technicians","e":68690,"med":44580,"mean":45500},{"c":"25-9021","t":"Farm and Home Management Educators","e":8220,"med":60220,"mean":61060},{"c":"25-9031","t":"Instructional Coordinators","e":227760,"med":77440,"mean":80920},{"c":"25-9044","t":"Teaching Assistants, Postsecondary","e":164090,"med":42910,"mean":47670},{"c":"25-9045","t":"Teaching Assistants, Except Postsecondary","e":1420350,"med":36780,"mean":38290},{"c":"25-9099","t":"Educational Instruction and Library Workers, All Other","e":118590,"med":50890,"mean":59060},{"c":"27-1011","t":"Art Directors","e":53070,"med":114850,"mean":129440},{"c":"27-1012","t":"Craft Artists","e":4580,"med":46080,"mean":49740},{"c":"27-1013","t":"Fine Artists, Including Painters, Sculptors, and Illustrators","e":11220,"med":55490,"mean":73150},{"c":"27-1014","t":"Special Effects Artists and Animators","e":19970,"med":102030,"mean":112870},{"c":"27-1019","t":"Artists and Related Workers, All Other","e":6930,"med":71240,"mean":80530},{"c":"27-1021","t":"Commercial and Industrial Designers","e":33490,"med":83910,"mean":93260},{"c":"27-1022","t":"Fashion Designers","e":21450,"med":80960,"mean":91230},{"c":"27-1023","t":"Floral Designers","e":40590,"med":37360,"mean":39520},{"c":"27-1024","t":"Graphic Designers","e":197830,"med":62960,"mean":70560},{"c":"27-1025","t":"Interior Designers","e":71500,"med":67190,"mean":74540},{"c":"27-1026","t":"Merchandise Displayers and Window Trimmers","e":165220,"med":39390,"mean":42830},{"c":"27-1027","t":"Set and Exhibit Designers","e":10630,"med":75240,"mean":83160},{"c":"27-1029","t":"Designers, All Other","e":9480,"med":64950,"mean":79090},{"c":"27-2011","t":"Actors","e":55000},{"c":"27-2012","t":"Producers and Directors","e":143120,"med":90360,"mean":113300},{"c":"27-2021","t":"Athletes and Sports Competitors","e":15070,"med":66710,"mean":206180},{"c":"27-2022","t":"Coaches and Scouts","e":248950,"med":47320,"mean":60160},{"c":"27-2023","t":"Umpires, Referees, and Other Sports Officials","e":15780,"med":40710,"mean":53010},{"c":"27-2031","t":"Dancers","e":8130},{"c":"27-2032","t":"Choreographers","e":2860,"med":55310,"mean":73100},{"c":"27-2041","t":"Music Directors and Composers","e":12540,"med":73710,"mean":90470},{"c":"27-2042","t":"Musicians and Singers","e":36180},{"c":"27-2091","t":"Disc Jockeys, Except Radio","e":7920},{"c":"27-2099","t":"Entertainers and Performers, Sports and Related Workers, All Other","e":16550},{"c":"27-3011","t":"Broadcast Announcers and Radio Disc Jockeys","e":21240,"med":47340,"mean":78720},{"c":"27-3023","t":"News Analysts, Reporters, and Journalists","e":39250,"med":62200,"mean":102460},{"c":"27-3031","t":"Public Relations Specialists","e":283380,"med":74750,"mean":84120},{"c":"27-3041","t":"Editors","e":91690,"med":77920,"mean":90060},{"c":"27-3042","t":"Technical Writers","e":45500,"med":90390,"mean":96970},{"c":"27-3043","t":"Writers and Authors","e":47940,"med":76910,"mean":86090},{"c":"27-3091","t":"Interpreters and Translators","e":52060,"med":60170,"mean":66360},{"c":"27-3092","t":"Court Reporters and Simultaneous Captioners","e":12870,"med":72420,"mean":78760},{"c":"27-3099","t":"Media and Communication Workers, All Other","e":19590,"med":73620,"mean":83860},{"c":"27-4011","t":"Audio and Video Technicians","e":70230,"med":58100,"mean":64630},{"c":"27-4012","t":"Broadcast Technicians","e":21110,"med":59570,"mean":67960},{"c":"27-4014","t":"Sound Engineering Technicians","e":13080,"med":73130,"mean":81390},{"c":"27-4015","t":"Lighting Technicians","e":8900,"med":68060,"mean":78380},{"c":"27-4021","t":"Photographers","e":51760,"med":44660,"mean":55410},{"c":"27-4031","t":"Camera Operators, Television, Video, and Film","e":21550,"med":74990,"mean":83210},{"c":"27-4032","t":"Film and Video Editors","e":25610,"med":75420,"mean":86130},{"c":"27-4099","t":"Media and Communication Equipment Workers, All Other","e":12450,"med":70720,"mean":81040},{"c":"29-1011","t":"Chiropractors","e":39630,"med":79200,"mean":90520},{"c":"29-1021","t":"Dentists, General","e":124390,"med":170950,"mean":191350},{"c":"29-1022","t":"Oral and Maxillofacial Surgeons","e":4910,"med":352220,"mean":346490},{"c":"29-1023","t":"Orthodontists","e":6210,"med":289140,"mean":259400},{"c":"29-1024","t":"Prosthodontists","e":870,"med":311180,"mean":268630},{"c":"29-1029","t":"Dentists, All Other Specialists","e":5230,"med":224990,"mean":247930},{"c":"29-1031","t":"Dietitians and Nutritionists","e":77570,"med":76400,"mean":77130},{"c":"29-1041","t":"Optometrists","e":42790,"med":136570,"mean":141550},{"c":"29-1051","t":"Pharmacists","e":321970,"med":140910,"mean":140920},{"c":"29-1071","t":"Physician Assistants","e":162150,"med":135880,"mean":141280},{"c":"29-1081","t":"Podiatrists","e":9680,"med":160300,"mean":175480},{"c":"29-1122","t":"Occupational Therapists","e":162450,"med":100330,"mean":101280},{"c":"29-1123","t":"Physical Therapists","e":267330,"med":102760,"mean":105280},{"c":"29-1124","t":"Radiation Therapists","e":17070,"med":105310,"mean":114990},{"c":"29-1125","t":"Recreational Therapists","e":14930,"med":61960,"mean":67630},{"c":"29-1126","t":"Respiratory Therapists","e":139790,"med":82280,"mean":87300},{"c":"29-1127","t":"Speech-Language Pathologists","e":183390,"med":97870,"mean":98170},{"c":"29-1128","t":"Exercise Physiologists","e":8560,"med":59460,"mean":60940},{"c":"29-1129","t":"Therapists, All Other","e":22640,"med":77930,"mean":90420},{"c":"29-1131","t":"Veterinarians","e":83900,"med":130100,"mean":142680},{"c":"29-1141","t":"Registered Nurses","e":3379720,"med":97550,"mean":101420},{"c":"29-1151","t":"Nurse Anesthetists","e":51840,"med":236590,"mean":248320},{"c":"29-1161","t":"Nurse Midwives","e":7920,"med":134040,"mean":136980},{"c":"29-1171","t":"Nurse Practitioners","e":323040,"med":132300,"mean":137300},{"c":"29-1181","t":"Audiologists","e":13660,"med":95780,"mean":97740},{"c":"29-1211","t":"Anesthesiologists","e":38760,"med":391490,"mean":360570},{"c":"29-1212","t":"Cardiologists","e":17290,"med":496010,"mean":454940},{"c":"29-1213","t":"Dermatologists","e":11370,"med":328730,"mean":323530},{"c":"29-1214","t":"Emergency Medicine Physicians","e":32880,"med":335550,"mean":317480},{"c":"29-1215","t":"Family Medicine Physicians","e":107510,"med":244180,"mean":255820},{"c":"29-1216","t":"General Internal Medicine Physicians","e":67150,"med":256560,"mean":267200},{"c":"29-1217","t":"Neurologists","e":10590,"med":248560,"mean":267630},{"c":"29-1218","t":"Obstetricians and Gynecologists","e":21260,"med":292910,"mean":279040},{"c":"29-1221","t":"Pediatricians, General","e":39390,"med":210040,"mean":212110},{"c":"29-1222","t":"Physicians, Pathologists","e":11110,"med":312400,"mean":285420},{"c":"29-1223","t":"Psychiatrists","e":27980,"med":281870,"mean":269940},{"c":"29-1224","t":"Radiologists","e":26770,"med":420860,"mean":381530},{"c":"29-1229","t":"Physicians, All Other","e":342720,"med":265930,"mean":262040},{"c":"29-1241","t":"Ophthalmologists, Except Pediatric","e":8950,"med":300080,"mean":304650},{"c":"29-1242","t":"Orthopedic Surgeons, Except Pediatric","e":14100,"med":358550,"mean":373570},{"c":"29-1243","t":"Pediatric Surgeons","e":1190,"med":559030,"mean":502050},{"c":"29-1249","t":"Surgeons, All Other","e":25140,"med":414010,"mean":373930},{"c":"29-1291","t":"Acupuncturists","e":7830,"med":76040,"mean":87020},{"c":"29-1292","t":"Dental Hygienists","e":222740,"med":98100,"mean":98990},{"c":"29-1299","t":"Healthcare Diagnosing or Treating Practitioners, All Other","e":28630,"med":115210,"mean":127660},{"c":"29-2010","t":"Clinical Laboratory Technologists and Technicians","e":332940,"med":62930,"mean":67350},{"c":"29-2031","t":"Cardiovascular Technologists and Technicians","e":62960,"med":74310,"mean":76940},{"c":"29-2032","t":"Diagnostic Medical Sonographers","e":90160,"med":96590,"mean":97240},{"c":"29-2033","t":"Nuclear Medicine Technologists","e":17080,"med":101370,"mean":105160},{"c":"29-2034","t":"Radiologic Technologists and Technicians","e":230490,"med":80110,"mean":83840},{"c":"29-2035","t":"Magnetic Resonance Imaging Technologists","e":43390,"med":95480,"mean":96120},{"c":"29-2036","t":"Medical Dosimetrists","e":3410,"med":147470,"mean":148500},{"c":"29-2042","t":"Emergency Medical Technicians","e":180510,"med":44470,"mean":46830},{"c":"29-2043","t":"Paramedics","e":100610,"med":60600,"mean":63360},{"c":"29-2051","t":"Dietetic Technicians","e":31560,"med":37640,"mean":40630},{"c":"29-2052","t":"Pharmacy Technicians","e":471680,"med":45750,"mean":46620},{"c":"29-2053","t":"Psychiatric Technicians","e":156960,"med":45130,"mean":46610},{"c":"29-2055","t":"Surgical Technologists","e":117460,"med":64650,"mean":68710},{"c":"29-2056","t":"Veterinary Technologists and Technicians","e":129140,"med":47380,"mean":49120},{"c":"29-2057","t":"Ophthalmic Medical Technicians","e":71010,"med":45570,"mean":47060},{"c":"29-2061","t":"Licensed Practical and Licensed Vocational Nurses","e":648410,"med":64400,"mean":67050},{"c":"29-2072","t":"Medical Records Specialists","e":194720,"med":51140,"mean":56790},{"c":"29-2081","t":"Opticians, Dispensing","e":73530,"med":47260,"mean":51770},{"c":"29-2091","t":"Orthotists and Prosthetists","e":9390,"med":81110,"mean":83740},{"c":"29-2092","t":"Hearing Aid Specialists","e":11270,"med":65160,"mean":66370},{"c":"29-2099","t":"Health Technologists and Technicians, All Other","e":182610,"med":50290,"mean":58710},{"c":"29-9021","t":"Health Information Technologists and Medical Registrars","e":38100,"med":68020,"mean":74970},{"c":"29-9091","t":"Athletic Trainers","e":30500,"med":62520,"mean":66620},{"c":"29-9092","t":"Genetic Counselors","e":3740,"med":100040,"mean":104620},{"c":"29-9093","t":"Surgical Assistants","e":22270,"med":66800,"mean":72710},{"c":"29-9099","t":"Healthcare Practitioners and Technical Workers, All Other","e":35010,"med":65790,"mean":76720},{"c":"31-1120","t":"Home Health and Personal Care Aides","e":4305810,"med":35800,"mean":36120},{"c":"31-1131","t":"Nursing Assistants","e":1448910,"med":42260,"mean":42700},{"c":"31-1132","t":"Orderlies","e":52440,"med":38290,"mean":40660},{"c":"31-1133","t":"Psychiatric Aides","e":35520,"med":44910,"mean":45690},{"c":"31-2011","t":"Occupational Therapy Assistants","e":51290,"med":72300,"mean":70710},{"c":"31-2012","t":"Occupational Therapy Aides","e":4310,"med":39160,"mean":44110},{"c":"31-2021","t":"Physical Therapist Assistants","e":112430,"med":68380,"mean":68730},{"c":"31-2022","t":"Physical Therapist Aides","e":48150,"med":35240,"mean":36430},{"c":"31-9011","t":"Massage Therapists","e":98790,"med":58450,"mean":63830},{"c":"31-9091","t":"Dental Assistants","e":387790,"med":48070,"mean":50200},{"c":"31-9092","t":"Medical Assistants","e":817870,"med":45690,"mean":46120},{"c":"31-9093","t":"Medical Equipment Preparers","e":77420,"med":47700,"mean":50510},{"c":"31-9094","t":"Medical Transcriptionists","e":41550,"med":40410,"mean":41710},{"c":"31-9095","t":"Pharmacy Aides","e":39530,"med":37680,"mean":40450},{"c":"31-9096","t":"Veterinary Assistants and Laboratory Animal Caretakers","e":126580,"med":38150,"mean":40340},{"c":"31-9097","t":"Phlebotomists","e":143540,"med":45230,"mean":45520},{"c":"31-9099","t":"Healthcare Support Workers, All Other","e":109740,"med":48430,"mean":50810},{"c":"33-1011","t":"First-Line Supervisors of Correctional Officers","e":53380,"med":77970,"mean":84380},{"c":"33-1012","t":"First-Line Supervisors of Police and Detectives","e":154610,"med":106040,"mean":112190},{"c":"33-1021","t":"First-Line Supervisors of Firefighting and Prevention Workers","e":99140,"med":93530,"mean":96930},{"c":"33-1091","t":"First-Line Supervisors of Security Workers","e":81480,"med":55940,"mean":59900},{"c":"33-1099","t":"First-Line Supervisors of Protective Service Workers, All Other","e":20690,"med":76400,"mean":74390},{"c":"33-2011","t":"Firefighters","e":345990,"med":59280,"mean":63630},{"c":"33-2021","t":"Fire Inspectors and Investigators","e":13800,"med":75920,"mean":78670},{"c":"33-2022","t":"Forest Fire Inspectors and Prevention Specialists","e":2780,"med":56870,"mean":66640},{"c":"33-3011","t":"Bailiffs","e":17310,"med":56600,"mean":61660},{"c":"33-3012","t":"Correctional Officers and Jailers","e":380500,"med":58940,"mean":63630},{"c":"33-3021","t":"Detectives and Criminal Investigators","e":114430,"med":93790,"mean":99430},{"c":"33-3031","t":"Fish and Game Wardens","e":5770,"med":74060,"mean":74950},{"c":"33-3041","t":"Parking Enforcement Workers","e":9050,"med":46730,"mean":51190},{"c":"33-3051","t":"Police and Sheriff's Patrol Officers","e":670520,"med":76210,"mean":79200},{"c":"33-3052","t":"Transit and Railroad Police","e":4390,"med":90230,"mean":91810},{"c":"33-9011","t":"Animal Control Workers","e":12070,"med":45660,"mean":48440},{"c":"33-9021","t":"Private Detectives and Investigators","e":35580,"med":51220,"mean":60150},{"c":"33-9031","t":"Gambling Surveillance Officers and Gambling Investigators","e":9520,"med":43370,"mean":45630},{"c":"33-9032","t":"Security Guards","e":1283470,"med":38020,"mean":42470},{"c":"33-9091","t":"Crossing Guards and Flaggers","e":94360,"med":38100,"mean":43350},{"c":"33-9092","t":"Lifeguards, Ski Patrol, and Other Recreational Protective Service Workers","e":157550,"med":33580,"mean":34470},{"c":"33-9093","t":"Transportation Security Screeners","e":50290,"med":66770,"mean":64310},{"c":"33-9094","t":"School Bus Monitors","e":78420,"med":35100,"mean":35150},{"c":"33-9099","t":"Protective Service Workers, All Other","e":81500,"med":42540,"mean":48070},{"c":"35-1011","t":"Chefs and Head Cooks","e":200040,"med":62470,"mean":66700},{"c":"35-1012","t":"First-Line Supervisors of Food Preparation and Serving Workers","e":1223240,"med":44080,"mean":46180},{"c":"35-2011","t":"Cooks, Fast Food","e":641070,"med":30890,"mean":32390},{"c":"35-2012","t":"Cooks, Institution and Cafeteria","e":441050,"med":37450,"mean":38810},{"c":"35-2013","t":"Cooks, Private Household","e":1100,"med":47940,"mean":53680},{"c":"35-2014","t":"Cooks, Restaurant","e":1409890,"med":37390,"mean":38730},{"c":"35-2015","t":"Cooks, Short Order","e":138650,"med":35880,"mean":36120},{"c":"35-2019","t":"Cooks, All Other","e":19350,"med":37690,"mean":39150},{"c":"35-2021","t":"Food Preparation Workers","e":893600,"med":35320,"mean":35290},{"c":"35-3011","t":"Bartenders","e":756390,"med":34340,"mean":40790},{"c":"35-3023","t":"Fast Food and Counter Workers","e":3854050,"med":31200,"mean":32150},{"c":"35-3031","t":"Waiters and Waitresses","e":2270910,"med":35230,"mean":40060},{"c":"35-3041","t":"Food Servers, Nonrestaurant","e":293900,"med":35360,"mean":36140},{"c":"35-9011","t":"Dining Room and Cafeteria Attendants and Bartender Helpers","e":542750,"med":33980,"mean":34230},{"c":"35-9021","t":"Dishwashers","e":477450,"med":34810,"mean":34310},{"c":"35-9031","t":"Hosts and Hostesses, Restaurant, Lounge, and Coffee Shop","e":432690,"med":31200,"mean":32690},{"c":"35-9099","t":"Food Preparation and Serving Related Workers, All Other","e":84630,"med":35840,"mean":36810},{"c":"37-1011","t":"First-Line Supervisors of Housekeeping and Janitorial Workers","e":178760,"med":49100,"mean":53320},{"c":"37-1012","t":"First-Line Supervisors of Landscaping, Lawn Service, and Groundskeeping Workers","e":130760,"med":58430,"mean":60960},{"c":"37-2011","t":"Janitors and Cleaners, Except Maids and Housekeeping Cleaners","e":2209760,"med":36840,"mean":38760},{"c":"37-2012","t":"Maids and Housekeeping Cleaners","e":860670,"med":35510,"mean":37080},{"c":"37-2019","t":"Building Cleaning Workers, All Other","e":17210,"med":44040,"mean":46420},{"c":"37-2021","t":"Pest Control Workers","e":102620,"med":45250,"mean":46400},{"c":"37-3011","t":"Landscaping and Groundskeeping Workers","e":952640,"med":39150,"mean":42290},{"c":"37-3012","t":"Pesticide Handlers, Sprayers, and Applicators, Vegetation","e":27050,"med":46340,"mean":47070},{"c":"37-3013","t":"Tree Trimmers and Pruners","e":55160,"med":50960,"mean":55970},{"c":"37-3019","t":"Grounds Maintenance Workers, All Other","e":13630,"med":46860,"mean":48830},{"c":"39-1013","t":"First-Line Supervisors of Gambling Services Workers","e":26010,"med":63820,"mean":64830},{"c":"39-1014","t":"First-Line Supervisors of Entertainment and Recreation Workers, Except Gambling Services","e":103190,"med":48560,"mean":53550},{"c":"39-1022","t":"First-Line Supervisors of Personal Service Workers","e":114110,"med":48590,"mean":52360},{"c":"39-2011","t":"Animal Trainers","e":18770,"med":39990,"mean":47020},{"c":"39-2021","t":"Animal Caretakers","e":266910,"med":35360,"mean":37300},{"c":"39-3011","t":"Gambling Dealers","e":83910,"med":34320,"mean":42550},{"c":"39-3012","t":"Gambling and Sports Book Writers and Runners","e":8950,"med":34980,"mean":36450},{"c":"39-3019","t":"Gambling Service Workers, All Other","e":14140,"med":36310,"mean":41380},{"c":"39-3021","t":"Motion Picture Projectionists","e":1480,"med":38270,"mean":51480},{"c":"39-3031","t":"Ushers, Lobby Attendants, and Ticket Takers","e":121770,"med":32910,"mean":33080},{"c":"39-3091","t":"Amusement and Recreation Attendants","e":397830,"med":32150,"mean":32640},{"c":"39-3092","t":"Costume Attendants","e":6510,"med":50400,"mean":63440},{"c":"39-3093","t":"Locker Room, Coatroom, and Dressing Room Attendants","e":15560,"med":36300,"mean":38460},{"c":"39-3099","t":"Entertainment Attendants and Related Workers, All Other","e":7060,"med":32640,"mean":34980},{"c":"39-4011","t":"Embalmers","e":3890,"med":58780,"mean":58390},{"c":"39-4012","t":"Crematory Operators","e":2970,"med":43650,"mean":45670},{"c":"39-4021","t":"Funeral Attendants","e":31090,"med":35680,"mean":37190},{"c":"39-4031","t":"Morticians, Undertakers, and Funeral Arrangers","e":25100,"med":55010,"mean":58160},{"c":"39-5011","t":"Barbers","e":15000,"med":38210,"mean":47070},{"c":"39-5012","t":"Hairdressers, Hairstylists, and Cosmetologists","e":305710,"med":35790,"mean":43960},{"c":"39-5091","t":"Makeup Artists, Theatrical and Performance","e":2340,"med":97150,"mean":102240},{"c":"39-5092","t":"Manicurists and Pedicurists","e":152770,"med":35760,"mean":38570},{"c":"39-5093","t":"Shampooers","e":8070,"med":32600,"mean":31980},{"c":"39-5094","t":"Skincare Specialists","e":72890,"med":45330,"mean":51850},{"c":"39-6011","t":"Baggage Porters and Bellhops","e":28510,"med":37080,"mean":38570},{"c":"39-6012","t":"Concierges","e":49240,"med":38950,"mean":42510},{"c":"39-7010","t":"Tour and Travel Guides","e":53500,"med":38120,"mean":43720},{"c":"39-9011","t":"Childcare Workers","e":518910,"med":34980,"mean":35030},{"c":"39-9031","t":"Exercise Trainers and Group Fitness Instructors","e":322930,"med":47160,"mean":52420},{"c":"39-9032","t":"Recreation Workers","e":331490,"med":36560,"mean":38520},{"c":"39-9041","t":"Residential Advisors","e":84760,"med":42240,"mean":43990},{"c":"39-9099","t":"Personal Care and Service Workers, All Other","e":60420,"med":41600,"mean":40120},{"c":"41-1011","t":"First-Line Supervisors of Retail Sales Workers","e":1121800,"med":48520,"mean":53380},{"c":"41-1012","t":"First-Line Supervisors of Non-Retail Sales Workers","e":214390,"med":87520,"mean":99370},{"c":"41-2011","t":"Cashiers","e":3089410,"med":32880,"mean":33180},{"c":"41-2012","t":"Gambling Change Persons and Booth Cashiers","e":21530,"med":36220,"mean":39100},{"c":"41-2021","t":"Counter and Rental Clerks","e":400810,"med":41300,"mean":45700},{"c":"41-2022","t":"Parts Salespersons","e":270070,"med":38630,"mean":43830},{"c":"41-2031","t":"Retail Salespersons","e":3897860,"med":35410,"mean":37310},{"c":"41-3011","t":"Advertising Sales Agents","e":91700,"med":64820,"mean":80670},{"c":"41-3021","t":"Insurance Sales Agents","e":479100,"med":62280,"mean":81480},{"c":"41-3031","t":"Securities, Commodities, and Financial Services Sales Agents","e":489570,"med":78660,"mean":109150},{"c":"41-3041","t":"Travel Agents","e":55110,"med":50160,"mean":54660},{"c":"41-3091","t":"Sales Representatives of Services, Except Advertising, Insurance, Financial Services, and Travel","e":1256010,"med":69990,"mean":82430},{"c":"41-4011","t":"Sales Representatives, Wholesale and Manufacturing, Technical and Scientific Products","e":284800,"med":104920,"mean":119730},{"c":"41-4012","t":"Sales Representatives, Wholesale and Manufacturing, Except Technical and Scientific Products","e":1238190,"med":72080,"mean":82530},{"c":"41-9011","t":"Demonstrators and Product Promoters","e":64520,"med":39320,"mean":45580},{"c":"41-9012","t":"Models","e":3780,"med":48470,"mean":72800},{"c":"41-9021","t":"Real Estate Brokers","e":46100,"med":73220,"mean":83950},{"c":"41-9022","t":"Real Estate Sales Agents","e":193370,"med":52830,"mean":69510},{"c":"41-9031","t":"Sales Engineers","e":51790,"med":124900,"mean":130140},{"c":"41-9041","t":"Telemarketers","e":58430,"med":35450,"mean":37370},{"c":"41-9091","t":"Door-to-Door Sales Workers, News and Street Vendors, and Related Workers","e":2760,"med":41380,"mean":43850},{"c":"41-9099","t":"Sales and Related Workers, All Other","e":93180,"med":48280,"mean":58510},{"c":"43-1011","t":"First-Line Supervisors of Office and Administrative Support Workers","e":1436680,"med":69500,"mean":73490},{"c":"43-2011","t":"Switchboard Operators, Including Answering Service","e":34280,"med":38630,"mean":42300},{"c":"43-2021","t":"Telephone Operators","e":3430,"med":41740,"mean":44970},{"c":"43-2099","t":"Communications Equipment Operators, All Other","e":1200,"med":54680,"mean":62130},{"c":"43-3011","t":"Bill and Account Collectors","e":158830,"med":47030,"mean":49060},{"c":"43-3021","t":"Billing and Posting Clerks","e":404060,"med":48500,"mean":51070},{"c":"43-3031","t":"Bookkeeping, Accounting, and Auditing Clerks","e":1373680,"med":50670,"mean":53560},{"c":"43-3041","t":"Gambling Cage Workers","e":14430,"med":37580,"mean":39510},{"c":"43-3051","t":"Payroll and Timekeeping Clerks","e":153140,"med":58260,"mean":59630},{"c":"43-3061","t":"Procurement Clerks","e":55810,"med":50580,"mean":52370},{"c":"43-3071","t":"Tellers","e":329480,"med":43030,"mean":42350},{"c":"43-3099","t":"Financial Clerks, All Other","e":36260,"med":53830,"mean":56450},{"c":"43-4011","t":"Brokerage Clerks","e":35940,"med":65750,"mean":72850},{"c":"43-4021","t":"Correspondence Clerks","e":4290,"med":46800,"mean":48090},{"c":"43-4031","t":"Court, Municipal, and License Clerks","e":179750,"med":48700,"mean":52320},{"c":"43-4041","t":"Credit Authorizers, Checkers, and Clerks","e":12030,"med":50080,"mean":51420},{"c":"43-4051","t":"Customer Service Representatives","e":2595750,"med":44770,"mean":46590},{"c":"43-4061","t":"Eligibility Interviewers, Government Programs","e":154800,"med":54210,"mean":56090},{"c":"43-4071","t":"File Clerks","e":73440,"med":43600,"mean":45590},{"c":"43-4081","t":"Hotel, Motel, and Resort Desk Clerks","e":261420,"med":35070,"mean":35550},{"c":"43-4111","t":"Interviewers, Except Eligibility and Loan","e":148060,"med":45920,"mean":47240},{"c":"43-4121","t":"Library Assistants, Clerical","e":85520,"med":36910,"mean":39370},{"c":"43-4131","t":"Loan Interviewers and Clerks","e":164790,"med":50020,"mean":52520},{"c":"43-4141","t":"New Accounts Clerks","e":36860,"med":47670,"mean":49370},{"c":"43-4151","t":"Order Clerks","e":75200,"med":46170,"mean":48220},{"c":"43-4161","t":"Human Resources Assistants, Except Payroll and Timekeeping","e":90220,"med":50610,"mean":52250},{"c":"43-4171","t":"Receptionists and Information Clerks","e":910180,"med":38010,"mean":39460},{"c":"43-4181","t":"Reservation and Transportation Ticket Agents and Travel Clerks","e":118710,"med":44390,"mean":49630},{"c":"43-4199","t":"Information and Record Clerks, All Other","e":134920,"med":49500,"mean":51490},{"c":"43-5011","t":"Cargo and Freight Agents","e":97670,"med":52260,"mean":57230},{"c":"43-5021","t":"Couriers and Messengers","e":68640,"med":39200,"mean":40970},{"c":"43-5031","t":"Public Safety Telecommunicators","e":102500,"med":53040,"mean":56740},{"c":"43-5032","t":"Dispatchers, Except Police, Fire, and Ambulance","e":202810,"med":50340,"mean":54740},{"c":"43-5041","t":"Meter Readers, Utilities","e":19430,"med":48150,"mean":55380},{"c":"43-5051","t":"Postal Service Clerks","e":73720,"med":62130,"mean":61860},{"c":"43-5052","t":"Postal Service Mail Carriers","e":328820,"med":60550,"mean":62540},{"c":"43-5053","t":"Postal Service Mail Sorters, Processors, and Processing Machine Operators","e":105200,"med":58470,"mean":59430},{"c":"43-5061","t":"Production, Planning, and Expediting Clerks","e":390160,"med":59650,"mean":62150},{"c":"43-5071","t":"Shipping, Receiving, and Inventory Clerks","e":816870,"med":45260,"mean":46810},{"c":"43-5111","t":"Weighers, Measurers, Checkers, and Samplers, Recordkeeping","e":53300,"med":46380,"mean":47630},{"c":"43-6011","t":"Executive Secretaries and Executive Administrative Assistants","e":459910,"med":76590,"mean":79140},{"c":"43-6012","t":"Legal Secretaries and Administrative Assistants","e":156280,"med":55570,"mean":60620},{"c":"43-6013","t":"Medical Secretaries and Administrative Assistants","e":961610,"med":45930,"mean":46800},{"c":"43-6014","t":"Secretaries and Administrative Assistants, Except Legal, Medical, and Executive","e":1706790,"med":47540,"mean":49350},{"c":"43-9021","t":"Data Entry Keyers","e":127080,"med":41340,"mean":43310},{"c":"43-9022","t":"Word Processors and Typists","e":35010,"med":49280,"mean":51120},{"c":"43-9031","t":"Desktop Publishers","e":3350,"med":55290,"mean":61970},{"c":"43-9041","t":"Insurance Claims and Policy Processing Clerks","e":214260,"med":49230,"mean":52920},{"c":"43-9051","t":"Mail Clerks and Mail Machine Operators, Except Postal Service","e":55230,"med":39280,"mean":41650},{"c":"43-9061","t":"Office Clerks, General","e":2464940,"med":45010,"mean":46420},{"c":"43-9071","t":"Office Machine Operators, Except Computer","e":25130,"med":40960,"mean":43220},{"c":"43-9081","t":"Proofreaders and Copy Markers","e":4580,"med":51120,"mean":54800},{"c":"43-9111","t":"Statistical Assistants","e":4710,"med":50330,"mean":55650},{"c":"43-9199","t":"Office and Administrative Support Workers, All Other","e":192260,"med":45670,"mean":48670},{"c":"45-1011","t":"First-Line Supervisors of Farming, Fishing, and Forestry Workers","e":27960,"med":59320,"mean":62730},{"c":"45-2011","t":"Agricultural Inspectors","e":14410,"med":49940,"mean":54910},{"c":"45-2021","t":"Animal Breeders","e":1330,"med":51130,"mean":57010},{"c":"45-2041","t":"Graders and Sorters, Agricultural Products","e":25180,"med":35730,"mean":36430},{"c":"45-2091","t":"Agricultural Equipment Operators","e":28500,"med":41730,"mean":43710},{"c":"45-2092","t":"Farmworkers and Laborers, Crop, Nursery, and Greenhouse","e":265500,"med":35660,"mean":37630},{"c":"45-2093","t":"Farmworkers, Farm, Ranch, and Aquacultural Animals","e":32810,"med":36670,"mean":39260},{"c":"45-2099","t":"Agricultural Workers, All Other","e":3620,"med":39850,"mean":45510},{"c":"45-4011","t":"Forest and Conservation Workers","e":6050,"med":43680,"mean":43680},{"c":"45-4021","t":"Fallers","e":3130,"med":52100,"mean":57110},{"c":"45-4022","t":"Logging Equipment Operators","e":21060,"med":49740,"mean":53190},{"c":"45-4023","t":"Log Graders and Scalers","e":3070,"med":46330,"mean":47770},{"c":"45-4029","t":"Logging Workers, All Other","e":1700,"med":50840,"mean":52910},{"c":"47-1011","t":"First-Line Supervisors of Construction Trades and Extraction Workers","e":812210,"med":79920,"mean":86450},{"c":"47-2011","t":"Boilermakers","e":10190,"med":76410,"mean":80090},{"c":"47-2021","t":"Brickmasons and Blockmasons","e":52550,"med":62120,"mean":68280},{"c":"47-2022","t":"Stonemasons","e":7820,"med":57390,"mean":60710},{"c":"47-2031","t":"Carpenters","e":670090,"med":60580,"mean":65630},{"c":"47-2041","t":"Carpet Installers","e":13780,"med":50340,"mean":56990},{"c":"47-2042","t":"Floor Layers, Except Carpet, Wood, and Hard Tiles","e":23640,"med":56460,"mean":61760},{"c":"47-2043","t":"Floor Sanders and Finishers","e":3720,"med":50440,"mean":52460},{"c":"47-2044","t":"Tile and Stone Setters","e":35850,"med":55690,"mean":59250},{"c":"47-2051","t":"Cement Masons and Concrete Finishers","e":206170,"med":57020,"mean":60050},{"c":"47-2053","t":"Terrazzo Workers and Finishers","e":1180,"med":76170,"mean":84920},{"c":"47-2061","t":"Construction Laborers","e":1096780,"med":47120,"mean":52030},{"c":"47-2071","t":"Paving, Surfacing, and Tamping Equipment Operators","e":41820,"med":53340,"mean":59000},{"c":"47-2072","t":"Pile Driver Operators","e":2310,"med":73300,"mean":80710},{"c":"47-2073","t":"Operating Engineers and Other Construction Equipment Operators","e":478090,"med":59850,"mean":66290},{"c":"47-2081","t":"Drywall and Ceiling Tile Installers","e":83080,"med":58930,"mean":63600},{"c":"47-2082","t":"Tapers","e":12840,"med":68270,"mean":72710},{"c":"47-2111","t":"Electricians","e":757220,"med":63190,"mean":71490},{"c":"47-2121","t":"Glaziers","e":58480,"med":57080,"mean":59720},{"c":"47-2131","t":"Insulation Workers, Floor, Ceiling, and Wall","e":44440,"med":49120,"mean":54740},{"c":"47-2132","t":"Insulation Workers, Mechanical","e":25660,"med":58340,"mean":65530},{"c":"47-2141","t":"Painters, Construction and Maintenance","e":225190,"med":49400,"mean":55420},{"c":"47-2142","t":"Paperhangers","e":1570,"med":52140,"mean":53730},{"c":"47-2151","t":"Pipelayers","e":33050,"med":49000,"mean":54700},{"c":"47-2152","t":"Plumbers, Pipefitters, and Steamfitters","e":465840,"med":63800,"mean":72170},{"c":"47-2161","t":"Plasterers and Stucco Masons","e":19310,"med":57660,"mean":62050},{"c":"47-2171","t":"Reinforcing Iron and Rebar Workers","e":13800,"med":58970,"mean":66060},{"c":"47-2181","t":"Roofers","e":135490,"med":55440,"mean":58140},{"c":"47-2211","t":"Sheet Metal Workers","e":119770,"med":61800,"mean":67850},{"c":"47-2221","t":"Structural Iron and Steel Workers","e":68380,"med":62780,"mean":70280},{"c":"47-2231","t":"Solar Photovoltaic Installers","e":31350,"med":53140,"mean":57900},{"c":"47-3011","t":"Helpers--Brickmasons, Blockmasons, Stonemasons, and Tile and Marble Setters","e":14170,"med":47550,"mean":50920},{"c":"47-3012","t":"Helpers--Carpenters","e":21680,"med":43780,"mean":44050},{"c":"47-3013","t":"Helpers--Electricians","e":63630,"med":42670,"mean":44080},{"c":"47-3014","t":"Helpers--Painters, Paperhangers, Plasterers, and Stucco Masons","e":7490,"med":40470,"mean":42440},{"c":"47-3015","t":"Helpers--Pipelayers, Plumbers, Pipefitters, and Steamfitters","e":44330,"med":42360,"mean":43730},{"c":"47-3016","t":"Helpers--Roofers","e":6030,"med":44160,"mean":45150},{"c":"47-3019","t":"Helpers, Construction Trades, All Other","e":24770,"med":42670,"mean":45140},{"c":"47-4011","t":"Construction and Building Inspectors","e":146720,"med":74690,"mean":77730},{"c":"47-4021","t":"Elevator and Escalator Installers and Repairers","e":23790,"med":109910,"mean":109820},{"c":"47-4031","t":"Fence Erectors","e":24480,"med":47980,"mean":50530},{"c":"47-4041","t":"Hazardous Materials Removal Workers","e":51710,"med":49450,"mean":56430},{"c":"47-4051","t":"Highway Maintenance Workers","e":154960,"med":50260,"mean":53080},{"c":"47-4061","t":"Rail-Track Laying and Maintenance Equipment Operators","e":19580,"med":70070,"mean":68740},{"c":"47-4071","t":"Septic Tank Servicers and Sewer Pipe Cleaners","e":30650,"med":49880,"mean":53500},{"c":"47-4090","t":"Miscellaneous Construction and Related Workers","e":28380,"med":49910,"mean":55130},{"c":"47-5011","t":"Derrick Operators, Oil and Gas","e":10590,"med":58620,"mean":60210},{"c":"47-5012","t":"Rotary Drill Operators, Oil and Gas","e":12600,"med":67890,"mean":72130},{"c":"47-5013","t":"Service Unit Operators, Oil and Gas","e":43140,"med":58160,"mean":62470},{"c":"47-5022","t":"Excavating and Loading Machine and Dragline Operators, Surface Mining","e":34480,"med":57430,"mean":59930},{"c":"47-5023","t":"Earth Drillers, Except Oil and Gas","e":19450,"med":60190,"mean":62830},{"c":"47-5032","t":"Explosives Workers, Ordnance Handling Experts, and Blasters","e":5100,"med":61390,"mean":66640},{"c":"47-5041","t":"Continuous Mining Machine Operators","e":14000,"med":61810,"mean":65050},{"c":"47-5043","t":"Roof Bolters, Mining","e":2160,"med":78540,"mean":78100},{"c":"47-5044","t":"Loading and Moving Machine Operators, Underground Mining","e":5930,"med":74500,"mean":71240},{"c":"47-5049","t":"Underground Mining Machine Operators, All Other","e":3180,"med":70130,"mean":69860},{"c":"47-5051","t":"Rock Splitters, Quarry","e":3320,"med":48740,"mean":51500},{"c":"47-5071","t":"Roustabouts, Oil and Gas","e":44970,"med":46960,"mean":49200},{"c":"47-5081","t":"Helpers--Extraction Workers","e":6700,"med":47730,"mean":50620},{"c":"47-5099","t":"Extraction Workers, All Other","e":5540,"med":57010,"mean":57890},{"c":"49-1011","t":"First-Line Supervisors of Mechanics, Installers, and Repairers","e":617500,"med":79860,"mean":85220},{"c":"49-2011","t":"Computer, Automated Teller, and Office Machine Repairers","e":65600,"med":47810,"mean":50880},{"c":"49-2021","t":"Radio, Cellular, and Tower Equipment Installers and Repairers","e":11140,"med":63520,"mean":69870},{"c":"49-2022","t":"Telecommunications Equipment Installers and Repairers, Except Line Installers","e":140920,"med":63890,"mean":68500},{"c":"49-2091","t":"Avionics Technicians","e":18830,"med":82280,"mean":83380},{"c":"49-2092","t":"Electric Motor, Power Tool, and Related Repairers","e":14450,"med":56210,"mean":58610},{"c":"49-2093","t":"Electrical and Electronics Installers and Repairers, Transportation Equipment","e":6940,"med":84890,"mean":83300},{"c":"49-2094","t":"Electrical and Electronics Repairers, Commercial and Industrial Equipment","e":65010,"med":74090,"mean":75570},{"c":"49-2095","t":"Electrical and Electronics Repairers, Powerhouse, Substation, and Relay","e":20720,"med":103020,"mean":100760},{"c":"49-2096","t":"Electronic Equipment Installers and Repairers, Motor Vehicles","e":8550,"med":48420,"mean":51560},{"c":"49-2097","t":"Audiovisual Equipment Installers and Repairers","e":19780,"med":52600,"mean":57930},{"c":"49-2098","t":"Security and Fire Alarm Systems Installers","e":86340,"med":60070,"mean":60960},{"c":"49-3011","t":"Aircraft Mechanics and Service Technicians","e":138090,"med":79870,"mean":84740},{"c":"49-3021","t":"Automotive Body and Related Repairers","e":149310,"med":54890,"mean":59690},{"c":"49-3022","t":"Automotive Glass Installers and Repairers","e":20310,"med":47630,"mean":50430},{"c":"49-3023","t":"Automotive Service Technicians and Mechanics","e":704640,"med":50620,"mean":56420},{"c":"49-3031","t":"Bus and Truck Mechanics and Diesel Engine Specialists","e":289960,"med":61770,"mean":64320},{"c":"49-3041","t":"Farm Equipment Mechanics and Service Technicians","e":37870,"med":56550,"mean":57290},{"c":"49-3042","t":"Mobile Heavy Equipment Mechanics, Except Engines","e":176600,"med":65510,"mean":69240},{"c":"49-3043","t":"Rail Car Repairers","e":21350,"med":67530,"mean":70680},{"c":"49-3051","t":"Motorboat Mechanics and Service Technicians","e":23220,"med":57550,"mean":58070},{"c":"49-3052","t":"Motorcycle Mechanics","e":13510,"med":48580,"mean":52370},{"c":"49-3053","t":"Outdoor Power Equipment and Other Small Engine Mechanics","e":36060,"med":47880,"mean":49990},{"c":"49-3091","t":"Bicycle Repairers","e":12170,"med":42780,"mean":42730},{"c":"49-3092","t":"Recreational Vehicle Service Technicians","e":17430,"med":52000,"mean":56440},{"c":"49-3093","t":"Tire Repairers and Changers","e":108410,"med":37710,"mean":40170},{"c":"49-9011","t":"Mechanical Door Repairers","e":27120,"med":55720,"mean":57540},{"c":"49-9012","t":"Control and Valve Installers and Repairers, Except Mechanical Door","e":48240,"med":74340,"mean":76210},{"c":"49-9021","t":"Heating, Air Conditioning, and Refrigeration Mechanics and Installers","e":409670,"med":61010,"mean":64780},{"c":"49-9031","t":"Home Appliance Repairers","e":32150,"med":50990,"mean":56040},{"c":"49-9041","t":"Industrial Machinery Mechanics","e":439640,"med":64520,"mean":68460},{"c":"49-9043","t":"Maintenance Workers, Machinery","e":60020,"med":60850,"mean":64610},{"c":"49-9044","t":"Millwrights","e":40330,"med":65700,"mean":69780},{"c":"49-9045","t":"Refractory Materials Repairers, Except Brickmasons","e":1080,"med":61290,"mean":63770},{"c":"49-9051","t":"Electrical Power-Line Installers and Repairers","e":131070,"med":95320,"mean":91970},{"c":"49-9052","t":"Telecommunications Line Installers and Repairers","e":97720,"med":74330,"mean":73940},{"c":"49-9061","t":"Camera and Photographic Equipment Repairers","e":1650,"med":52720,"mean":56040},{"c":"49-9062","t":"Medical Equipment Repairers","e":65990,"med":61660,"mean":65930},{"c":"49-9063","t":"Musical Instrument Repairers and Tuners","e":5380,"med":46420,"mean":49960},{"c":"49-9064","t":"Watch and Clock Repairers","e":1310,"med":67230,"mean":70840},{"c":"49-9069","t":"Precision Instrument and Equipment Repairers, All Other","e":9400,"med":68990,"mean":71180},{"c":"49-9071","t":"Maintenance and Repair Workers, General","e":1529700,"med":49590,"mean":53780},{"c":"49-9081","t":"Wind Turbine Service Technicians","e":9980,"med":64120,"mean":68980},{"c":"49-9091","t":"Coin, Vending, and Amusement Machine Servicers and Repairers","e":26410,"med":47450,"mean":49770},{"c":"49-9092","t":"Commercial Divers","e":3450,"med":72990,"mean":88320},{"c":"49-9094","t":"Locksmiths and Safe Repairers","e":15040,"med":51320,"mean":55470},{"c":"49-9095","t":"Manufactured Building and Mobile Home Installers","e":3020,"med":45990,"mean":45410},{"c":"49-9096","t":"Riggers","e":22530,"med":62640,"mean":66810},{"c":"49-9097","t":"Signal and Track Switch Repairers","e":8720,"med":92460,"mean":90410},{"c":"49-9098","t":"Helpers--Installation, Maintenance, and Repair Workers","e":95580,"med":39630,"mean":41490},{"c":"49-9099","t":"Installation, Maintenance, and Repair Workers, All Other","e":176300,"med":49230,"mean":53850},{"c":"51-1011","t":"First-Line Supervisors of Production and Operating Workers","e":673430,"med":74450,"mean":76600},{"c":"51-2011","t":"Aircraft Structure, Surfaces, Rigging, and Systems Assemblers","e":34020,"med":65380,"mean":71420},{"c":"51-2021","t":"Coil Winders, Tapers, and Finishers","e":12840,"med":48220,"mean":50470},{"c":"51-2028","t":"Electrical, Electronic, and Electromechanical Assemblers, Except Coil Winders, Tapers, and Finishers","e":246970,"med":45850,"mean":47660},{"c":"51-2031","t":"Engine and Other Machine Assemblers","e":34000,"med":53710,"mean":57790},{"c":"51-2041","t":"Structural Metal Fabricators and Fitters","e":52360,"med":51330,"mean":54030},{"c":"51-2051","t":"Fiberglass Laminators and Fabricators","e":16170,"med":46880,"mean":49550},{"c":"51-2061","t":"Timing Device Assemblers and Adjusters","e":250,"med":62620,"mean":56720},{"c":"51-2090","t":"Miscellaneous Assemblers and Fabricators","e":1405030,"med":44650,"mean":46660},{"c":"51-3011","t":"Bakers","e":236200,"med":37160,"mean":38480},{"c":"51-3021","t":"Butchers and Meat Cutters","e":136430,"med":40140,"mean":42380},{"c":"51-3022","t":"Meat, Poultry, and Fish Cutters and Trimmers","e":145700,"med":38300,"mean":39280},{"c":"51-3023","t":"Slaughterers and Meat Packers","e":69950,"med":40130,"mean":41770},{"c":"51-3091","t":"Food and Tobacco Roasting, Baking, and Drying Machine Operators and Tenders","e":20370,"med":44810,"mean":45930},{"c":"51-3092","t":"Food Batchmakers","e":174520,"med":42290,"mean":43750},{"c":"51-3093","t":"Food Cooking Machine Operators and Tenders","e":31250,"med":41590,"mean":42570},{"c":"51-3099","t":"Food Processing Workers, All Other","e":65000,"med":39680,"mean":40300},{"c":"51-4021","t":"Extruding and Drawing Machine Setters, Operators, and Tenders, Metal and Plastic","e":60840,"med":47720,"mean":49480},{"c":"51-4022","t":"Forging Machine Setters, Operators, and Tenders, Metal and Plastic","e":8930,"med":49030,"mean":51680},{"c":"51-4023","t":"Rolling Machine Setters, Operators, and Tenders, Metal and Plastic","e":25250,"med":50140,"mean":53220},{"c":"51-4031","t":"Cutting, Punching, and Press Machine Setters, Operators, and Tenders, Metal and Plastic","e":171200,"med":46330,"mean":48430},{"c":"51-4032","t":"Drilling and Boring Machine Tool Setters, Operators, and Tenders, Metal and Plastic","e":4680,"med":49080,"mean":51810},{"c":"51-4033","t":"Grinding, Lapping, Polishing, and Buffing Machine Tool Setters, Operators, and Tenders, Metal and Plastic","e":67000,"med":46550,"mean":48170},{"c":"51-4034","t":"Lathe and Turning Machine Tool Setters, Operators, and Tenders, Metal and Plastic","e":16710,"med":50620,"mean":52490},{"c":"51-4035","t":"Milling and Planing Machine Setters, Operators, and Tenders, Metal and Plastic","e":12460,"med":52800,"mean":56740},{"c":"51-4041","t":"Machinists","e":287050,"med":58750,"mean":59320},{"c":"51-4051","t":"Metal-Refining Furnace Operators and Tenders","e":16780,"med":54430,"mean":55490},{"c":"51-4052","t":"Pourers and Casters, Metal","e":4560,"med":51810,"mean":54290},{"c":"51-4061","t":"Model Makers, Metal and Plastic","e":2610,"med":63340,"mean":68570},{"c":"51-4062","t":"Patternmakers, Metal and Plastic","e":1470,"med":58000,"mean":60610},{"c":"51-4071","t":"Foundry Mold and Coremakers","e":12790,"med":48110,"mean":49860},{"c":"51-4072","t":"Molding, Coremaking, and Casting Machine Setters, Operators, and Tenders, Metal and Plastic","e":150470,"med":44350,"mean":45960},{"c":"51-4081","t":"Multiple Machine Tool Setters, Operators, and Tenders, Metal and Plastic","e":124590,"med":47180,"mean":50030},{"c":"51-4111","t":"Tool and Die Makers","e":56930,"med":64050,"mean":66860},{"c":"51-4121","t":"Welders, Cutters, Solderers, and Brazers","e":416210,"med":53750,"mean":56760},{"c":"51-4122","t":"Welding, Soldering, and Brazing Machine Setters, Operators, and Tenders","e":31600,"med":47920,"mean":50220},{"c":"51-4191","t":"Heat Treating Equipment Setters, Operators, and Tenders, Metal and Plastic","e":14000,"med":48750,"mean":50450},{"c":"51-4192","t":"Layout Workers, Metal and Plastic","e":5970,"med":63870,"mean":66520},{"c":"51-4193","t":"Plating Machine Setters, Operators, and Tenders, Metal and Plastic","e":32410,"med":43960,"mean":45100},{"c":"51-4194","t":"Tool Grinders, Filers, and Sharpeners","e":5600,"med":50060,"mean":53240},{"c":"51-4199","t":"Metal Workers and Plastic Workers, All Other","e":15900,"med":45950,"mean":48580},{"c":"51-5111","t":"Prepress Technicians and Workers","e":23840,"med":48690,"mean":50800},{"c":"51-5112","t":"Printing Press Operators","e":144260,"med":45780,"mean":47360},{"c":"51-5113","t":"Print Binding and Finishing Workers","e":33180,"med":42290,"mean":44460},{"c":"51-6011","t":"Laundry and Dry-Cleaning Workers","e":198040,"med":34890,"mean":34920},{"c":"51-6021","t":"Pressers, Textile, Garment, and Related Materials","e":26120,"med":35060,"mean":34640},{"c":"51-6031","t":"Sewing Machine Operators","e":104880,"med":36670,"mean":37600},{"c":"51-6041","t":"Shoe and Leather Workers and Repairers","e":7450,"med":37800,"mean":39160},{"c":"51-6042","t":"Shoe Machine Operators and Tenders","e":3280,"med":35650,"mean":36280},{"c":"51-6051","t":"Sewers, Hand","e":2190,"med":36480,"mean":37210},{"c":"51-6052","t":"Tailors, Dressmakers, and Custom Sewers","e":13920,"med":41640,"mean":45140},{"c":"51-6061","t":"Textile Bleaching and Dyeing Machine Operators and Tenders","e":5310,"med":38180,"mean":40380},{"c":"51-6062","t":"Textile Cutting Machine Setters, Operators, and Tenders","e":9000,"med":38760,"mean":39530},{"c":"51-6063","t":"Textile Knitting and Weaving Machine Setters, Operators, and Tenders","e":13030,"med":39530,"mean":40720},{"c":"51-6064","t":"Textile Winding, Twisting, and Drawing Out Machine Setters, Operators, and Tenders","e":22020,"med":38670,"mean":40120},{"c":"51-6091","t":"Extruding and Forming Machine Setters, Operators, and Tenders, Synthetic and Glass Fibers","e":12850,"med":46350,"mean":48580},{"c":"51-6092","t":"Fabric and Apparel Patternmakers","e":2950,"med":62750,"mean":71420},{"c":"51-6093","t":"Upholsterers","e":20140,"med":46340,"mean":47340},{"c":"51-6099","t":"Textile, Apparel, and Furnishings Workers, All Other","e":13530,"med":37280,"mean":40560},{"c":"51-7011","t":"Cabinetmakers and Bench Carpenters","e":77170,"med":46680,"mean":48290},{"c":"51-7021","t":"Furniture Finishers","e":14480,"med":44540,"mean":45300},{"c":"51-7031","t":"Model Makers, Wood","e":280,"med":56550,"mean":63670},{"c":"51-7032","t":"Patternmakers, Wood","e":220,"med":49630,"mean":54240},{"c":"51-7041","t":"Sawing Machine Setters, Operators, and Tenders, Wood","e":40850,"med":42770,"mean":43580},{"c":"51-7042","t":"Woodworking Machine Setters, Operators, and Tenders, Except Sawing","e":61420,"med":43380,"mean":43570},{"c":"51-7099","t":"Woodworkers, All Other","e":5490,"med":44530,"mean":46070},{"c":"51-8011","t":"Nuclear Power Reactor Operators","e":5150,"med":122890,"mean":121380},{"c":"51-8012","t":"Power Distributors and Dispatchers","e":8520,"med":106730,"mean":111320},{"c":"51-8013","t":"Power Plant Operators","e":29320,"med":102040,"mean":99790},{"c":"51-8021","t":"Stationary Engineers and Boiler Operators","e":28250,"med":78620,"mean":83960},{"c":"51-8031","t":"Water and Wastewater Treatment Plant and System Operators","e":128490,"med":60020,"mean":62540},{"c":"51-8091","t":"Chemical Plant and System Operators","e":16610,"med":78120,"mean":79970},{"c":"51-8092","t":"Gas Plant Operators","e":18030,"med":87820,"mean":88710},{"c":"51-8093","t":"Petroleum Pump System Operators, Refinery Operators, and Gaugers","e":33160,"med":96710,"mean":90630},{"c":"51-8099","t":"Plant and System Operators, All Other","e":14080,"med":62470,"mean":65700},{"c":"51-9011","t":"Chemical Equipment Operators and Tenders","e":139630,"med":58040,"mean":60710},{"c":"51-9012","t":"Separating, Filtering, Clarifying, Precipitating, and Still Machine Setters, Operators, and Tenders","e":60100,"med":51610,"mean":56030},{"c":"51-9021","t":"Crushing, Grinding, and Polishing Machine Setters, Operators, and Tenders","e":26000,"med":48540,"mean":51380},{"c":"51-9022","t":"Grinding and Polishing Workers, Hand","e":10510,"med":42660,"mean":45020},{"c":"51-9023","t":"Mixing and Blending Machine Setters, Operators, and Tenders","e":94920,"med":48990,"mean":52090},{"c":"51-9031","t":"Cutters and Trimmers, Hand","e":6060,"med":38020,"mean":41050},{"c":"51-9032","t":"Cutting and Slicing Machine Setters, Operators, and Tenders","e":44980,"med":46570,"mean":47460},{"c":"51-9041","t":"Extruding, Forming, Pressing, and Compacting Machine Setters, Operators, and Tenders","e":58770,"med":45760,"mean":47260},{"c":"51-9051","t":"Furnace, Kiln, Oven, Drier, and Kettle Operators and Tenders","e":14280,"med":48040,"mean":50940},{"c":"51-9061","t":"Inspectors, Testers, Sorters, Samplers, and Weighers","e":597370,"med":48570,"mean":53450},{"c":"51-9071","t":"Jewelers and Precious Stone and Metal Workers","e":22440,"med":52540,"mean":57960},{"c":"51-9081","t":"Dental Laboratory Technicians","e":34410,"med":49610,"mean":54290},{"c":"51-9082","t":"Medical Appliance Technicians","e":11280,"med":48030,"mean":52730},{"c":"51-9083","t":"Ophthalmic Laboratory Technicians","e":18660,"med":39460,"mean":43190},{"c":"51-9111","t":"Packaging and Filling Machine Operators and Tenders","e":379060,"med":43220,"mean":44590},{"c":"51-9123","t":"Painting, Coating, and Decorating Workers","e":7940,"med":41600,"mean":45210},{"c":"51-9124","t":"Coating, Painting, and Spraying Machine Setters, Operators, and Tenders","e":158740,"med":48250,"mean":52620},{"c":"51-9141","t":"Semiconductor Processing Technicians","e":31460,"med":51430,"mean":60180},{"c":"51-9151","t":"Photographic Process Workers and Processing Machine Operators","e":4800,"med":40610,"mean":46050},{"c":"51-9161","t":"Computer Numerically Controlled Tool Operators","e":169450,"med":50690,"mean":54320},{"c":"51-9162","t":"Computer Numerically Controlled Tool Programmers","e":28500,"med":68120,"mean":72210},{"c":"51-9191","t":"Adhesive Bonding Machine Operators and Tenders","e":11500,"med":46460,"mean":46850},{"c":"51-9192","t":"Cleaning, Washing, and Metal Pickling Equipment Operators and Tenders","e":14760,"med":43530,"mean":44600},{"c":"51-9193","t":"Cooling and Freezing Equipment Operators and Tenders","e":6900,"med":41330,"mean":44940},{"c":"51-9194","t":"Etchers and Engravers","e":7750,"med":43310,"mean":46320},{"c":"51-9195","t":"Molders, Shapers, and Casters, Except Metal and Plastic","e":33190,"med":46170,"mean":47500},{"c":"51-9196","t":"Paper Goods Machine Setters, Operators, and Tenders","e":96130,"med":50270,"mean":52840},{"c":"51-9197","t":"Tire Builders","e":20770,"med":57390,"mean":57160},{"c":"51-9198","t":"Helpers--Production Workers","e":165700,"med":39070,"mean":41120},{"c":"51-9199","t":"Production Workers, All Other","e":251700,"med":40110,"mean":44380},{"c":"53-1041","t":"Aircraft Cargo Handling Supervisors","e":9760,"med":58170,"mean":65010},{"c":"53-1047","t":"First-Line Supervisors of Transportation and Material Moving Workers, Except Aircraft Cargo Handling Supervisors","e":623640,"med":62890,"mean":66860},{"c":"53-2011","t":"Airline Pilots, Copilots, and Flight Engineers","e":103560,"med":232140,"mean":288650},{"c":"53-2012","t":"Commercial Pilots","e":47630,"med":123220,"mean":146080},{"c":"53-2021","t":"Air Traffic Controllers","e":22510,"med":148080,"mean":146490},{"c":"53-2022","t":"Airfield Operations Specialists","e":15190,"med":56850,"mean":63610},{"c":"53-2031","t":"Flight Attendants","e":131650,"med":63580,"mean":77440},{"c":"53-3011","t":"Ambulance Drivers and Attendants, Except Emergency Medical Technicians","e":12630,"med":35450,"mean":36210},{"c":"53-3031","t":"Driver/Sales Workers","e":409180,"med":38770,"mean":40730},{"c":"53-3032","t":"Heavy and Tractor-Trailer Truck Drivers","e":2062040,"med":58640,"mean":59710},{"c":"53-3033","t":"Light Truck Drivers","e":983300,"med":44860,"mean":48770},{"c":"53-3051","t":"Bus Drivers, School","e":402930,"med":47920,"mean":48430},{"c":"53-3052","t":"Bus Drivers, Transit and Intercity","e":159240,"med":59050,"mean":60280},{"c":"53-3053","t":"Shuttle Drivers and Chauffeurs","e":248530,"med":37290,"mean":39880},{"c":"53-3054","t":"Taxi Drivers","e":41050,"med":42100,"mean":49930},{"c":"53-3099","t":"Motor Vehicle Operators, All Other","e":46880,"med":37180,"mean":42430},{"c":"53-4011","t":"Locomotive Engineers","e":33470,"med":81410,"mean":85900},{"c":"53-4013","t":"Rail Yard Engineers, Dinkey Operators, and Hostlers","e":3920,"med":60600,"mean":68450},{"c":"53-4022","t":"Railroad Brake, Signal, and Switch Operators and Locomotive Firers","e":12400,"med":68840,"mean":69030},{"c":"53-4031","t":"Railroad Conductors and Yardmasters","e":46440,"med":78000,"mean":79100},{"c":"53-4041","t":"Subway and Streetcar Operators","e":10200,"med":86380,"mean":77170},{"c":"53-4099","t":"Rail Transportation Workers, All Other","e":1120,"med":56360,"mean":60140},{"c":"53-5011","t":"Sailors and Marine Oilers","e":31670,"med":51520,"mean":56830},{"c":"53-5021","t":"Captains, Mates, and Pilots of Water Vessels","e":36850,"med":92460,"mean":103720},{"c":"53-5022","t":"Motorboat Operators","e":2480,"med":47520,"mean":56270},{"c":"53-5031","t":"Ship Engineers","e":8400,"med":109530,"mean":111790},{"c":"53-6011","t":"Bridge and Lock Tenders","e":3040,"med":57700,"mean":55370},{"c":"53-6021","t":"Parking Attendants","e":137880,"med":35150,"mean":34990},{"c":"53-6031","t":"Automotive and Watercraft Service Attendants","e":102010,"med":35670,"mean":36780},{"c":"53-6032","t":"Aircraft Service Attendants","e":31300,"med":40450,"mean":43330},{"c":"53-6041","t":"Traffic Technicians","e":7860,"med":59090,"mean":62050},{"c":"53-6051","t":"Transportation Inspectors","e":24500,"med":92100,"mean":88540},{"c":"53-6061","t":"Passenger Attendants","e":27110,"med":37720,"mean":37820},{"c":"53-6099","t":"Transportation Workers, All Other","e":13550,"med":45650,"mean":50890},{"c":"53-7011","t":"Conveyor Operators and Tenders","e":22930,"med":42420,"mean":45080},{"c":"53-7021","t":"Crane and Tower Operators","e":42890,"med":68080,"mean":72130},{"c":"53-7031","t":"Dredge Operators","e":1040,"med":49640,"mean":56120},{"c":"53-7041","t":"Hoist and Winch Operators","e":2600,"med":56450,"mean":67710},{"c":"53-7051","t":"Industrial Truck and Tractor Operators","e":774420,"med":46420,"mean":48370},{"c":"53-7061","t":"Cleaners of Vehicles and Equipment","e":380430,"med":35830,"mean":36980},{"c":"53-7062","t":"Laborers and Freight, Stock, and Material Movers, Hand","e":2950280,"med":40240,"mean":42260},{"c":"53-7063","t":"Machine Feeders and Offbearers","e":42330,"med":41220,"mean":43660},{"c":"53-7064","t":"Packers and Packagers, Hand","e":559820,"med":36280,"mean":37540},{"c":"53-7065","t":"Stockers and Order Fillers","e":2833810,"med":37330,"mean":39540},{"c":"53-7071","t":"Gas Compressor and Gas Pumping Station Operators","e":3510,"med":77320,"mean":74610},{"c":"53-7072","t":"Pump Operators, Except Wellhead Pumpers","e":9780,"med":61770,"mean":63960},{"c":"53-7073","t":"Wellhead Pumpers","e":17990,"med":69960,"mean":70370},{"c":"53-7081","t":"Refuse and Recyclable Material Collectors","e":147240,"med":49690,"mean":52820},{"c":"53-7121","t":"Tank Car, Truck, and Ship Loaders","e":10700,"med":58870,"mean":59970},{"c":"53-7199","t":"Material Moving Workers, All Other","e":23480,"med":41800,"mean":45640}];
+  const byCode = Object.fromEntries(OCC.map(d => [d.c, d]));
+  const CATALOG = OCC.map(d => d.c + "\t" + d.t).join("\n");
+
+  const SOC_SYS = `You map a user's free-text profession to matching SOC detailed occupation code(s) from the BLS catalog provided, then optionally give a finer-grained estimate.
+
+Rules:
+1. "codes" = ALL detailed SOC codes whose summed employment forms the real anchor for the profession (e.g. generic "truck driver" = both heavy/tractor-trailer and light truck; "teacher" with no level = elementary+middle+secondary).
+2. The ANCHOR number (you do NOT compute it; the app sums the codes) is the exact employment of those buckets combined.
+3. "adjusted_estimate" = your best estimate of how many people do the SPECIFIC profession asked about. It MUST be a number between 0 and the anchor total — i.e. a fraction (or all) of the summed codes, never a figure invented independently of them.
+   - If the profession IS essentially the whole bucket (e.g. "lawyer" -> 23-1011 is entirely lawyers), set adjusted_estimate equal to the anchor and confidence "exact".
+   - If the profession is NARROWER than the bucket (e.g. "pipefitter" inside Plumbers/Pipefitters/Steamfitters, or "ER nurse" inside Registered Nurses), estimate the realistic share and set confidence "medium", "low", or "very low".
+4. "basis" = one sentence stating the concrete reasoning for the share (cite a rough proportion and why). Be specific: "trade surveys put pipefitters near a third of this combined group" beats "roughly a third".
+5. "confidence" = one of: exact | medium | low | very low. Reserve "exact" for clean whole-bucket matches only. Use "very low" when you're essentially guessing the split.
+6. If BLS does not track the profession at all (podcaster, influencer), return "codes":[] and explain in "basis"; omit adjusted_estimate.
+7. WAGES: the app computes the exact employment-weighted median annual wage of the summed codes (the "anchor wage"). Optionally provide "adjusted_wage" = your estimate of the typical annual wage for the SPECIFIC profession, IF it would differ materially from the bucket average (e.g. pipefitters tend to out-earn the plumbing bucket; pediatric vs. general nurses differ less). Set "adjusted_wage" only when you have a concrete reason it diverges; otherwise omit it and the app shows the bucket wage as-is. When given, add one sentence to "wage_basis" explaining the direction and rough size of the difference. Do not invent precision — round to the nearest 1000.
+
+Respond with ONLY a JSON object, no markdown, no prose:
+{"codes":["47-2152"],"adjusted_estimate":155000,"confidence":"low","basis":"<one sentence>","adjusted_wage":72000,"wage_basis":"<one sentence, omit if no adjustment>"}`;
+
+  // Maps a free-text profession to SOC code(s) and returns real BLS headcount + median wage.
+  async function blsLookup(profession) {
+    try {
+      const res = await fetch("/api/estimate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ type: "bls", profession, catalog: CATALOG }),
+      });
+      if (!res.ok) throw new Error("bls_api_" + res.status);
+      const m = await res.json();
+      if (m.error) return { ok: false, error: m.error, basis: m.basis || "" };
+      const codes = (m.codes || []).filter(c => byCode[c]);
+      if (!codes.length) return { ok: false, basis: m.basis || "" };
+      const rows = codes.map(c => byCode[c]);
+      const anchor = rows.reduce((s, r) => s + r.e, 0);
+      let est = (typeof m.adjusted_estimate === "number") ? m.adjusted_estimate : anchor;
+      est = Math.max(0, Math.min(est, anchor));
+      const conf = (m.confidence || "").toLowerCase();
+      const isExact = conf === "exact" || est === anchor;
+      // employment-weighted median wage across codes that report one
+      const wRows = rows.filter(r => typeof r.med === "number");
+      let anchorWage = null;
+      if (wRows.length) {
+        const wEmp = wRows.reduce((s, r) => s + r.e, 0);
+        anchorWage = wRows.reduce((s, r) => s + r.med * r.e, 0) / wEmp;
+      }
+      let adjWage = (typeof m.adjusted_wage === "number") ? m.adjusted_wage : null;
+      if (adjWage != null && anchorWage != null) adjWage = Math.max(anchorWage * 0.4, Math.min(adjWage, anchorWage * 2.5));
+      const wage = (adjWage != null && anchorWage != null) ? adjWage : anchorWage;
+      return {
+        ok: true,
+        employment: isExact ? anchor : est,
+        bucketTotal: anchor,
+        wage,
+        confidence: conf || "exact",
+        isExact,
+        codes: rows.map(r => ({ c: r.c, t: r.t, e: r.e })),
+        basis: m.basis || "",
+      };
+    } catch (e) {
+      return { ok: false, error: e.message };
+    }
+  }
+
+  const SYSTEM_PROMPT = `You estimate parameters for an economic model of how AI affects employment in a given profession. You must respond with ONLY a JSON object, no prose, no markdown fences.
+
+Estimate these parameters:
+
+1. "currentAutomatable" (number, 0.01-0.60): The share of this job's tasks that today's best AI can already do, right now, in 2026. Be realistic — for most jobs this is modest (0.05-0.35).
+2. "productivityToday" (number, 1-30): How many times faster than a human AI is TODAY at the tasks it can already do. Software/text: often 5-20×. Physical work: 1-3×.
+3. "productivityCeiling" (number, 2-100): How many times faster AI EVENTUALLY gets at the automatable tasks. HIGH (50-100) for pure knowledge/software work; MODERATE (3-8) for physical work bounded by real-world execution speed; LOW (1-2) for work where humans are strongly preferred. Must be >= productivityToday.
+4. "aiCostToday" (number, 0.02-1.0): Cost of an AI hour as a fraction of a human hour today. LOW (0.03-0.10) for software-only work; MID (0.10-0.30) for robotics/physical; 1.0 if humans are essentially irreplaceable.
+5. "aiCostDecayRate" (number, 0.0-0.45): Annual % drop in that AI cost. HIGH (0.35-0.45) for software; LOW (0.05-0.15) for robotics/actuators; 0 if irreplaceable.
+6. "demandElasticity" (number, 0.0-4.0): Long-run % demand growth per 1% price drop. LOW (0.3-0.8) inelastic; HIGH (1.5-3.0) elastic.
+7. "laborCostShare" (number, 0.2-0.95): Fraction of the service's price that is human labor.
+8. "complementarity" (number, 1.0-4.0): How much AI speeds up the HUMAN-only tasks the worker keeps doing. For MIND work this can be substantial (1.3-2.0): AI drafts, researches, reviews. For HAND work it must be very conservative (1.0-1.15): you cannot AI-accelerate crawling under a sink or suturing tissue — the physical act runs at human speed. For HEART work, 1.0.
+9. "hiringAdjustmentYears" (number, 0.5-5.0): Years for the workforce to GROW (credential barrier).
+10. "demandAbsorptionYears" (number, 1.0-8.0): Years for the market to absorb a price drop.
+
+EVERY job has support work (marketing, admin, scheduling, editing, billing, logistics, outreach) that AI automates cheaply and early — software, no robot needed. This matters most for HEART work, whose core (a human people want) is untouchable but whose support wrapper collapses in cost, freeing the human to reach a bigger audience.
+11. "supportFraction" (number, 0.0-0.8): Share of the job that is automatable SUPPORT work rather than the core skill. Influencer/creator/performer: HIGH (0.4-0.7) — much of the grind is editing, promotion, brand admin. Surgeon/plumber: LOW (0.1-0.3) — mostly core. Knowledge worker: MID-HIGH.
+12. "reachCeiling" (number, 0.0-20.0): As support is offloaded, how many ADDITIONAL multiples of core output one human can serve. Scalable/broadcastable work (influencer, online coach, recording artist): HIGH (5-20) — one person reaches vastly more. Inherently 1-to-1 work (surgeon, wedding officiant, in-home plumber): LOW (0-1) — you still serve one client at a time.
+
+For HAND work only, the robotics gate (physical capability needs capable, affordable, dexterous robots to exist and deploy):
+13. "robotArrivalYear" (number, 0-30): Years until such robots reach meaningful deployment for THIS job. Simple structured tasks sooner (5-12); dexterous/unstructured/high-stakes/trust-sensitive later (12-30).
+14. "robotRampYears" (number, 1-15): Once arrived, years for deployment to spread.
+(For MIND and HEART work, return robotArrivalYear: 0 and robotRampYears: 1.)
+
+Also return:
+- "workKind" (string): "mind", "hand", or "heart". Choose "heart" whenever the thing being sold is fundamentally a HUMAN doing it live or in person and audiences/clients specifically want a human: ALL performing musicians and instrumentalists (violinist, pianist, singer, orchestra player), actors, dancers, comedians, athletes, live entertainers, influencers/creators, clergy, and therapists/coaches where presence is the point. A violinist is HEART, not hand — the bowing technique is a skill, but people pay to hear a human perform, and a machine playing the notes is not a substitute for the concert. Use "hand" only for physical work where the OUTPUT (a fixed pipe, a healed patient) is what's wanted and a competent machine would be an acceptable substitute. Use "mind" for knowledge/analysis/language/code.
+- "confidence" (string): "high", "medium", or "low".
+- "rationale" (string, max 200 chars): one sentence on the key dynamic. Where possible, ANCHOR to BLS 2023-33 employment projections (all-occupations baseline is +4.0%/decade; healthcare/personal-care aides ~+20%; office/admin support declining due to AI) and name BLS if you use it.
+- "commentary" (string, max 240 chars): a vivid one-sentence narrative of how the transition plays out.
+- "elasticityNote" (string, max 200 chars): one sentence explaining WHY this profession's demand elasticity is high or low — what about this market makes buyers respond a lot (or little) to a price drop. Name the concrete mechanism (e.g. latent unmet demand, regulatory/insurance caps, discretionary vs. essential, fixed need per person).
+- "incomeNote" (string, max 200 chars): one sentence explaining the projected path of average income per worker for this profession — WHY it rises, holds, or falls. Tie it to the model's forces: AI as a complement raising the productivity (and pay) of remaining workers vs. AI as a substitute compressing wages, plus whether market expansion or contraction dominates. Be concrete to this job.
+
+CALIBRATION ANCHORS:
+- Software engineer: {"workKind":"mind","currentAutomatable":0.30,"productivityToday":12,"productivityCeiling":100,"aiCostToday":0.05,"aiCostDecayRate":0.40,"demandElasticity":2.2,"laborCostShare":0.80,"complementarity":1.8,"hiringAdjustmentYears":0.8,"demandAbsorptionYears":3.0,"supportFraction":0.30,"reachCeiling":2,"robotArrivalYear":0,"robotRampYears":1}
+- Lawyer: {"workKind":"mind","currentAutomatable":0.20,"productivityToday":8,"productivityCeiling":60,"aiCostToday":0.06,"aiCostDecayRate":0.38,"demandElasticity":0.6,"laborCostShare":0.78,"complementarity":1.5,"hiringAdjustmentYears":3.0,"demandAbsorptionYears":5.0,"supportFraction":0.35,"reachCeiling":1.5,"robotArrivalYear":0,"robotRampYears":1}
+- Tax accountant: {"workKind":"mind","currentAutomatable":0.25,"productivityToday":10,"productivityCeiling":70,"aiCostToday":0.05,"aiCostDecayRate":0.40,"demandElasticity":0.3,"laborCostShare":0.70,"complementarity":1.2,"hiringAdjustmentYears":2.5,"demandAbsorptionYears":6.0,"supportFraction":0.40,"reachCeiling":1.5,"robotArrivalYear":0,"robotRampYears":1}
+- Plumber: {"workKind":"hand","currentAutomatable":0.05,"productivityToday":1.3,"productivityCeiling":4,"aiCostToday":0.30,"aiCostDecayRate":0.08,"demandElasticity":1.4,"laborCostShare":0.70,"complementarity":1.05,"hiringAdjustmentYears":1.5,"demandAbsorptionYears":2.5,"supportFraction":0.20,"reachCeiling":0.5,"robotArrivalYear":15,"robotRampYears":10}
+- Surgeon: {"workKind":"hand","currentAutomatable":0.08,"productivityToday":1.3,"productivityCeiling":3,"aiCostToday":0.40,"aiCostDecayRate":0.07,"demandElasticity":0.7,"laborCostShare":0.65,"complementarity":1.1,"hiringAdjustmentYears":4.5,"demandAbsorptionYears":6.0,"supportFraction":0.15,"reachCeiling":0.3,"robotArrivalYear":20,"robotRampYears":12}
+- Warehouse picker: {"workKind":"hand","currentAutomatable":0.10,"productivityToday":1.5,"productivityCeiling":6,"aiCostToday":0.20,"aiCostDecayRate":0.12,"demandElasticity":1.0,"laborCostShare":0.55,"complementarity":1.05,"hiringAdjustmentYears":0.8,"demandAbsorptionYears":2.0,"supportFraction":0.10,"reachCeiling":0.2,"robotArrivalYear":6,"robotRampYears":6}
+- Live musician: {"workKind":"heart","currentAutomatable":0.02,"productivityToday":1.1,"productivityCeiling":1.2,"aiCostToday":1.0,"aiCostDecayRate":0.0,"demandElasticity":1.2,"laborCostShare":0.85,"complementarity":1.0,"hiringAdjustmentYears":0.8,"demandAbsorptionYears":3.0,"supportFraction":0.40,"reachCeiling":4,"robotArrivalYear":0,"robotRampYears":1}
+- Violinist / concert performer: {"workKind":"heart","currentAutomatable":0.02,"productivityToday":1.1,"productivityCeiling":1.2,"aiCostToday":1.0,"aiCostDecayRate":0.0,"demandElasticity":0.9,"laborCostShare":0.88,"complementarity":1.0,"hiringAdjustmentYears":1.5,"demandAbsorptionYears":3.0,"supportFraction":0.30,"reachCeiling":3,"robotArrivalYear":0,"robotRampYears":1}
+- Influencer / content creator: {"workKind":"heart","currentAutomatable":0.03,"productivityToday":1.2,"productivityCeiling":1.5,"aiCostToday":1.0,"aiCostDecayRate":0.0,"demandElasticity":1.8,"laborCostShare":0.85,"complementarity":1.0,"hiringAdjustmentYears":0.5,"demandAbsorptionYears":2.0,"supportFraction":0.60,"reachCeiling":12,"robotArrivalYear":0,"robotRampYears":1}
+
+If the input is not a recognizable profession, return {"error":"not_a_profession"}.`;
+
+  function clamp(v, lo, hi, dflt) {
+    const n = Number(v);
+    return Number.isFinite(n) ? Math.min(hi, Math.max(lo, n)) : dflt;
+  }
+
+  async function estimateProfession(profession) {
+    const resp = await fetch("/api/estimate", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ type: "params", profession }),
+    });
+    let parsed = null;
+    try { parsed = await resp.json(); } catch {}
+    if (!resp.ok) {
+      const detail = parsed && parsed.detail ? (': ' + parsed.detail) : '';
+      throw new Error('api_error_' + resp.status + detail);
+    }
+    if (parsed?.error === "not_a_profession") return { error: "not_a_profession" };
+    if (parsed?.error) throw new Error(parsed.error);
+
+    const currentAutomatable = clamp(parsed.currentAutomatable, 0.01, 0.60, 0.15);
+    const productivityToday = clamp(parsed.productivityToday, 1, 30, 3);
+    const productivityCeiling = Math.max(productivityToday, clamp(parsed.productivityCeiling, 2, 100, 50));
+    const workKind = ["mind","hand","heart"].includes(parsed.workKind) ? parsed.workKind : "mind";
+    // Core capability ceiling: heart core never automates (0). Hand and mind have no
+    // core ceiling (1.0) — over time people may prefer a robot that does the physical
+    // job better/faster/cheaper, so hand work can eventually fully automate too.
+    const coreCapabilityCeiling = workKind === 'heart' ? 0.0 : 1.0;
+    // Hand-work complementarity is hard-capped low: AI can't speed up the physical act.
+    const compMax = workKind === 'hand' ? 1.15 : (workKind === 'heart' ? 1.05 : 4);
+
+    // HAND jobs use a FIXED embodied-AI Gompertz curve (capped, slow), and the user
+    // only controls when dexterous robots arrive. We pin today/5yr to canned values.
+    const FIXED_HAND_TODAY = 0.03;
+    const FIXED_HAND_5YR   = 0.12;
+
+    return {
+      profession: profession.trim(),
+      workKind,
+      coreCapabilityCeiling,
+      currentAutomatable: workKind === 'hand' ? FIXED_HAND_TODAY : currentAutomatable,
+      fiveYearFixed:      workKind === 'hand' ? FIXED_HAND_5YR : null,
+      productivityToday,
+      productivityCeiling,
+      aiCostToday: clamp(parsed.aiCostToday, 0.02, 1.0, 0.10),
+      aiCostDecayRate: clamp(parsed.aiCostDecayRate, 0, 0.45, 0.30),
+      demandElasticity: clamp(parsed.demandElasticity, 0, 4, 1),
+      laborCostShare: clamp(parsed.laborCostShare, 0.2, 0.95, 0.7),
+      complementarity: clamp(parsed.complementarity, 1, compMax, 1),
+      hiringAdjustmentYears: clamp(parsed.hiringAdjustmentYears, 0.5, 5, 1.5),
+      demandAbsorptionYears: clamp(parsed.demandAbsorptionYears, 1, 8, 4),
+      supportFraction: clamp(parsed.supportFraction, 0, 0.8, 0.3),
+      reachCeiling: clamp(parsed.reachCeiling, 0, 20, 1),
+      supportAICost: 0.04, // support work is software-cheap for everyone
+      robotArrivalYear: workKind === 'hand' ? clamp(parsed.robotArrivalYear, 0, 30, 12) : 0,
+      robotRampYears: workKind === 'hand' ? clamp(parsed.robotRampYears, 1, 15, 8) : 1,
+      confidence: ["high","medium","low"].includes(parsed.confidence) ? parsed.confidence : "medium",
+      rationale: String(parsed.rationale || "").slice(0, 240),
+      commentary: String(parsed.commentary || "").slice(0, 280),
+      elasticityNote: String(parsed.elasticityNote || "").slice(0, 240),
+      incomeNote: String(parsed.incomeNote || "").slice(0, 240),
+    };
+  }
+
+  const errorMessages = {
+    invalid_profession: 'Please enter a profession (2–80 characters).',
+    not_a_profession: 'That doesn\'t look like a profession. Try "electrician" or "nurse".',
+    estimation_failed: 'Couldn\'t estimate that one. Try a different profession.',
+    network: 'Network error. Check your connection and try again.',
+  };
+
+  // Cycles a sequence of "what the model is working out" messages while the lookup runs.
+  // Returns a stop() function. Honest framing: these are the conceptual pieces being
+  // estimated by two parallel API calls, not strictly sequential steps.
+  function startStatusCycle(statusEl, profession) {
+    const steps = [
+      'Classifying the kind of work',
+      'Looking up BLS employment and wages',
+      'Estimating what AI can do today',
+      'Estimating what AI can do in five years',
+      'Projecting the demand response',
+      'Gauging the AI cost curve',
+      'Estimating productivity gains',
+      'Weighing how much AI complements the human',
+      'Weighing the robotics timeline',
+      'Estimating market expansion',
+      'Tracing the employment path',
+      'Composing the picture',
+    ];
+    let i = 0;
+    let pending = null;
+    const spinner = '<span class="spinner"></span>';
+    const paint = (txt) => {
+      statusEl.innerHTML = spinner + '<span class="status-msg">' + txt + ' for “' + profession + '”…</span>';
+    };
+    paint(steps[0]);
+    const tick = () => {
+      const msg = statusEl.querySelector('.status-msg');
+      if (msg) msg.classList.add('fading');
+      pending = setTimeout(() => {
+        i = (i + 1) % steps.length;
+        paint(steps[i]);
+      }, 260); // matches the CSS fade-out before swapping in the next line
+    };
+    const handle = setInterval(tick, 1100);
+    let stopped = false;
+    return () => {
+      if (stopped) return;
+      stopped = true;
+      clearInterval(handle);
+      if (pending) clearTimeout(pending);
+    };
+  }
+
+  async function doLookup() {
+    const input = $('lookup-input'), btn = $('lookup-btn'), status = $('lookup-status');
+    const profession = input.value.trim();
+    if (profession.length < 2) {
+      status.textContent = errorMessages.invalid_profession;
+      status.className = 'lookup-status error';
+      return;
+    }
+    btn.disabled = true;
+    status.className = 'lookup-status';
+    const stopCycle = startStatusCycle(status, profession);
+
+    try {
+      const [data, bls] = await Promise.all([
+        estimateProfession(profession),
+        blsLookup(profession),
+      ]);
+      stopCycle();
+      if (data.error) {
+        status.textContent = errorMessages[data.error] || errorMessages.estimation_failed;
+        status.className = 'lookup-status error';
+      } else {
+        data.bls = (bls && bls.ok) ? bls : null;
+        currentProfile = data;
+        for (const k of Object.keys(overrides)) delete overrides[k];
+        unlocked = false;
+        $('unlockBtn').classList.remove('active');
+        $('unlockBtn').textContent = '🔒 Unlock';
+
+        const hand = data.workKind === 'hand';
+        const heart = data.workKind === 'heart';
+        $('dualWrap').style.display = hand ? 'none' : 'block';
+        $('handWrap').style.display = hand ? 'block' : 'none';
+        $('control-label').textContent = hand
+          ? 'Estimated dexterous robot availability'
+          : 'Estimated share of tasks AI can do';
+
+        // Fill the kind placeholder slot beside the Estimate button.
+        const kindLabel = { mind: 'Mind', hand: 'Hand', heart: 'Heart' }[data.workKind] || 'Mind';
+        const lk = $('lookupKind');
+        lk.classList.add('filled');
+        lk.innerHTML = `<span class="kind-icon ${data.workKind}">${kindIconSvg(data.workKind)} ${kindLabel}</span>`;
+
+        if (hand) {
+          const aEl = $('handArrivalSlider');
+          aEl.value = Math.round(data.robotArrivalYear || 12);
+          $('handArrivalValue').textContent = aEl.value + ' yr';
+          $('control-desc-note').textContent = '';
+        } else {
+          // Heart core can't be automated → cap sliders at 10%. Mind → up to 99%.
+          const cur = data.currentAutomatable;
+          const sliderMaxPct = heart ? 10 : 99;
+          const tEl = $('todaySlider'), fEl = $('futureSlider');
+          // Both handles share one coordinate system (0 .. sliderMaxPct) so the highlight
+          // between them lines up exactly; syncDual enforces today < future.
+          tEl.min = 0; fEl.min = 0;
+          tEl.max = sliderMaxPct; fEl.max = sliderMaxPct;
+          const future = Math.min(sliderMaxPct/100, Math.max(cur + 0.02, cur + (1 - cur) * 0.4));
+          tEl.value = Math.round(Math.min(cur, (sliderMaxPct-1)/100) * 100);
+          fEl.value = Math.round(future * 100);
+          // Rebuild tick scale based on the slider's max so labels match the actual range.
+          const ts = $('dualTickScale');
+          if (ts) {
+            const fmtPct = (v) => {
+              if (sliderMaxPct <= 10) return v.toFixed(v < 10 && v % 1 !== 0 ? 1 : 0) + '%';
+              return Math.round(v) + '%';
+            };
+            const stops = [0, 0.25, 0.5, 0.75, 1.0].map(f => f * sliderMaxPct);
+            ts.innerHTML = stops.map((v, i) => {
+              const isFirst = i === 0, isLast = i === stops.length - 1;
+              const cls = 'tick' + (isLast ? ' last' : '');
+              const left = (i / (stops.length - 1) * 100).toFixed(1) + '%';
+              const id = isLast ? ' id="dualMaxHint"' : '';
+              return `<span class="${cls}" style="left:${left}"><i></i><b${id}>${fmtPct(v)}</b></span>`;
+            }).join('');
+          }
+          syncDual();
+          $('control-desc-note').textContent = heart
+            ? 'A “heart” job — people want a human, so the core can’t be automated (capped at 10%). AI mainly affects the support work, which helps employment grow with the market.'
+            : (data.rationale || data.commentary || '');
+        }
+
+        setText('control-status', '');
+        $('midpointControl').style.display = 'flex';
+        $('elasticityControl').style.display = 'flex';
+        // Sync the top-level elasticity slider to the AI-estimated value
+        const eEl = $('elasticitySlider');
+        const eVal = Math.max(0, Math.min(4, data.demandElasticity ?? 1));
+        eEl.value = eVal;
+        $('elasticityValue').textContent = eVal.toFixed(1) + '×';
+        if (data.elasticityNote) setText('elasticityNote', data.elasticityNote);
+        $('results').classList.add('show');
+        renderTable();
+        render();
+        status.textContent = '';
+        status.className = 'lookup-status';
+      }
+    } catch (e) {
+      console.error(e);
+      status.textContent = errorMessages.estimation_failed + ' (' + (e.message || 'error') + ')';
+      status.className = 'lookup-status error';
+    } finally {
+      stopCycle();
+      btn.disabled = false;
+    }
+  }
+
+  // ---- Dual slider: keep today < future, update fill + readouts ----
+  function syncDual() {
+    const tEl = $('todaySlider'), fEl = $('futureSlider');
+    let t = +tEl.value, f = +fEl.value;
+    if (t >= f) { // enforce ordering with a 1-point gap
+      const maxF = +fEl.max, maxT = +tEl.max;
+      if (document.activeElement === tEl) { f = Math.min(maxF, t + 1); fEl.value = f; }
+      else { t = Math.max(0, Math.min(maxT, f - 1)); tEl.value = t; }
+    }
+    $('todayValue').textContent = t + '%';
+    $('futureValue').textContent = f + '%';
+    // Position the highlight using each handle's fraction of its OWN range, so it lines up
+    // with the thumbs whatever the slider max is (Mind ~99, Heart capped at 10).
+    const tMin = +tEl.min, tMax = +tEl.max, fMin = +fEl.min, fMax = +fEl.max;
+    const tPos = (t - tMin) / (tMax - tMin) * 100;
+    const fPos = (f - fMin) / (fMax - fMin) * 100;
+    const fill = $('dualFill');
+    fill.style.left = tPos + '%';
+    fill.style.width = Math.max(0, fPos - tPos) + '%';
+  }
+
+  $('lookup-btn').addEventListener('click', doLookup);
+  $('lookup-input').addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); doLookup(); } });
+
+  ['todaySlider','futureSlider'].forEach(id => {
+    $(id).addEventListener('input', () => {
+      syncDual();
+      if (currentProfile) { renderTable(); render(); }
+    });
+  });
+
+  $('handArrivalSlider').addEventListener('input', () => {
+    $('handArrivalValue').textContent = $('handArrivalSlider').value + ' yr';
+    if (currentProfile) { renderTable(); render(); }
+  });
+
+  // Top-level demand-elasticity slider: writes to overrides, mirrors the param table.
+  $('elasticitySlider').addEventListener('input', () => {
+    const v = +$('elasticitySlider').value;
+    $('elasticityValue').textContent = v.toFixed(1) + '×';
+    if (currentProfile) {
+      overrides.demandElasticity = v;
+      renderTable();
+      render();
+    }
+  });
+
+  $('unlockBtn').addEventListener('click', () => {
+    unlocked = !unlocked;
+    $('unlockBtn').classList.toggle('active', unlocked);
+    $('unlockBtn').textContent = unlocked ? '🔓 Locked params editable' : '🔒 Unlock';
+    if (currentProfile) renderTable();
+  });
+</script>
+
+</body>
+</html>

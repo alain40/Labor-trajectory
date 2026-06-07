@@ -1,0 +1,11 @@
+{
+  "name": "ai-labor-model",
+  "version": "21.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Will this job survive? Dynamic model of AI's effect on employment, with BLS anchoring.",
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.40.0",
+    "@netlify/blobs": "^8.1.0"
+  }
+}
